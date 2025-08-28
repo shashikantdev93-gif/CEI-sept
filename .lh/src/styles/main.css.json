@@ -1,0 +1,62 @@
+{
+    "sourceFile": "src/styles/main.css",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 11,
+            "patches": [
+                {
+                    "date": 1753672056690,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1753672064512,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -76,9 +76,9 @@\n   font-weight: 700 !important; \r\n }\r\n \r\n .registeration-bg .small {\r\n-  font-size: 14px !important; \r\n+  font-size: 11px !important; \r\n }\r\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n"
+                },
+                {
+                    "date": 1753672071764,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -76,9 +76,9 @@\n   font-weight: 700 !important; \r\n }\r\n \r\n .registeration-bg .small {\r\n-  font-size: 11px !important; \r\n+  font-size: 12px !important; \r\n }\r\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n"
+                },
+                {
+                    "date": 1753672087574,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -81,9 +81,9 @@\n }\r\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n-  font-size: 17px !important;\r\n+  font-size: 11px !important;\r\n   font-weight: 500 !important;\r\n }\r\n \r\n .registeration-bg .text-muted {\r\n"
+                },
+                {
+                    "date": 1753672101568,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -81,9 +81,9 @@\n }\r\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n-  font-size: 11px !important;\r\n+  font-size: 12px !important;\r\n   font-weight: 500 !important;\r\n }\r\n \r\n .registeration-bg .text-muted {\r\n"
+                },
+                {
+                    "date": 1753672119741,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -76,9 +76,9 @@\n   font-weight: 700 !important; \r\n }\r\n \r\n .registeration-bg .small {\r\n-  font-size: 12px !important; \r\n+  font-size: 13px !important; \r\n }\r\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n"
+                },
+                {
+                    "date": 1753672129155,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -76,9 +76,9 @@\n   font-weight: 700 !important; \r\n }\r\n \r\n .registeration-bg .small {\r\n-  font-size: 13px !important; \r\n+  font-size: 14px !important; \r\n }\r\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n"
+                },
+                {
+                    "date": 1753672138507,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -82,9 +82,9 @@\n \r\n .registeration-bg .form-control,\r\n .registeration-bg .form-select {\r\n   font-size: 12px !important;\r\n-  font-weight: 500 !important;\r\n+  font-weight: 700 !important;\r\n }\r\n \r\n .registeration-bg .text-muted {\r\n   font-size: 13px !important;\r\n"
+                },
+                {
+                    "date": 1753672903056,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -91,9 +91,9 @@\n   font-weight: 400 !important;\r\n }\r\n \r\n .registeration-bg h6 {\r\n-  font-size: 22px !important;\r\n+  font-size: 18px !important;\r\n   font-weight: 700 !important;\r\n }\r\n \r\n .registeration-bg h4 {\r\n"
+                },
+                {
+                    "date": 1753672953365,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -96,9 +96,9 @@\n   font-weight: 700 !important;\r\n }\r\n \r\n .registeration-bg h4 {\r\n-  font-size: 24px !important;\r\n+  font-size: 20px !important;\r\n   font-weight: 700 !important;\r\n }\r\n \r\n .registeration-logo-box {\r\n"
+                },
+                {
+                    "date": 1753672964534,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -96,9 +96,9 @@\n   font-weight: 700 !important;\r\n }\r\n \r\n .registeration-bg h4 {\r\n-  font-size: 20px !important;\r\n+  font-size: 22px !important;\r\n   font-weight: 700 !important;\r\n }\r\n \r\n .registeration-logo-box {\r\n"
+                },
+                {
+                    "date": 1753673159219,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -86,9 +86,9 @@\n   font-weight: 700 !important;\r\n }\r\n \r\n .registeration-bg .text-muted {\r\n-  font-size: 13px !important;\r\n+  font-size: 11px !important;\r\n   font-weight: 400 !important;\r\n }\r\n \r\n .registeration-bg h6 {\r\n"
+                }
+            ],
+            "date": 1753672056690,
+            "name": "Commit-0",
+            "content": "\r\n/***************************/\r\n  /***** Login Page *****/\r\n/**************************/\r\n.login-bg {\r\n  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);\r\n  font-family: Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\r\n  width: 100vw;\r\n  height: 100vh;\r\n  margin: 0;\r\n  padding: 2px;\r\n}\r\n\r\n.login-left {\r\n  padding-left: 1.5rem !important;\r\n  padding-right: 1.5rem !important;\r\n  padding-top: .1rem !important;\r\n  padding-bottom: .1rem !important;\r\n}\r\n\r\n.login-logo-box {\r\n  height: 50px;\r\n  margin-bottom: 30px;\r\n  width: 110px;\r\n  background-color: #0c3064;\r\n  border-radius: 8px;\r\n  display: flex;\r\n  align-items: center;\r\n}\r\n\r\n.login-signup-link {\r\n  text-decoration: none;\r\n  font-size: 14px;\r\n}\r\n\r\n.login-divider {\r\n  width: 1px;\r\n  background: #e0e0e0;\r\n  min-height: 5%;\r\n  margin: 0 0px;\r\n}\r\n\r\n.login-right {\r\n  background-color: #f8f9fa;\r\n}\r\n\r\n\r\n/******************************************/\r\n/* Signup page logo box - desktop styles */\r\n/*****************************************/\r\n\r\n.signup-logo-box {\r\n  height: 50px;\r\n  margin-bottom: 30px;\r\n  width: 75px;\r\n  background-color: #0c3064;\r\n  border-radius: 8px;\r\n  display: flex;\r\n  align-items: center;\r\n}\r\n\r\n\r\n.card-container {\r\n  max-width: 1000px;\r\n  min-width: 700px;\r\n}\r\n\r\n/*********************/\r\n/* Registeration Page */\r\n/*********************/\r\n.registeration-bg {\r\n  --bs-font-size-sm: 16px; \r\n}\r\n\r\n.registeration-bg .fw-semibold {\r\n  font-weight: 700 !important; \r\n}\r\n\r\n.registeration-bg .small {\r\n  font-size: 14px !important; \r\n}\r\n\r\n.registeration-bg .form-control,\r\n.registeration-bg .form-select {\r\n  font-size: 17px !important;\r\n  font-weight: 500 !important;\r\n}\r\n\r\n.registeration-bg .text-muted {\r\n  font-size: 13px !important;\r\n  font-weight: 400 !important;\r\n}\r\n\r\n.registeration-bg h6 {\r\n  font-size: 22px !important;\r\n  font-weight: 700 !important;\r\n}\r\n\r\n.registeration-bg h4 {\r\n  font-size: 24px !important;\r\n  font-weight: 700 !important;\r\n}\r\n\r\n.registeration-logo-box {\r\n  border-radius: 8px;\r\n  display: flex;\r\n  align-items: center;\r\n  background-color: #0c3064;\r\n  width:80px\r\n}\r\n\r\n@media (max-width: 575.98px) {\r\n\r\n  .card-container {\r\n    max-width: 100% !important;\r\n    min-width: 100% !important;\r\n    padding: 0.5rem !important;\r\n  }\r\n  \r\n\r\n  .login-bg {\r\n    padding: 8px !important;\r\n  }\r\n  \r\n\r\n  .container .row .login-left,\r\n  .container .row .col-md-7.login-left,\r\n  div.row div.col-md-7 {\r\n    padding: 0rem !important;\r\n    max-width: 100% !important;\r\n    flex: 0 0 100% !important;\r\n    width: 100% !important;\r\n    margin-left: 0 !important;\r\n    margin-right: 0 !important;\r\n    gap:15px;\r\n  }\r\n  \r\n\r\n  .login-divider {\r\n    display: none !important;\r\n  }\r\n  \r\n  .container .row .login-right,\r\n  .container .row .col-md-4.login-right,\r\n  div.row div.col-md-4,\r\n  .col-md-4.login-right {\r\n    display: none !important;\r\n    visibility: hidden !important;\r\n    width: 0 !important;\r\n    flex: 0 0 0% !important;\r\n    max-width: 0 !important;\r\n    overflow: hidden !important;\r\n  }\r\n  \r\n\r\n  .login-logo-box {\r\n    width: 100% !important;\r\n    height: auto !important;\r\n    margin-bottom: 20px !important;\r\n    flex-direction: column !important;\r\n    padding: 10px !important;\r\n  }\r\n  \r\n\r\n  .login-logo-box .mb-4 {\r\n    margin-bottom: 0 !important;\r\n    flex-direction: column !important;\r\n    align-items: center !important;\r\n    text-align: center !important;\r\n    gap: 20px !important;\r\n  }\r\n  \r\n\r\n  .login-logo-box img {\r\n    margin: 0 !important;\r\n    margin-bottom: 8px !important;\r\n  }\r\n  \r\n\r\n  .login-logo-box span {\r\n    margin: 0 !important;\r\n    text-align: center !important;\r\n    font-size: 18px !important;\r\n  }\r\n  \r\n \r\n  .login-logo-box div {\r\n    flex-direction: column !important;\r\n    align-items: center !important;\r\n    text-align: center !important;\r\n  }\r\n  \r\n  .login-logo-box div img {\r\n    margin: 0 0 8px 0 !important;\r\n  }\r\n  \r\n  .login-logo-box div span {\r\n    margin: 0 !important;\r\n    font-size: 20px !important;\r\n    line-height: 1.2 !important;\r\n    text-align: center !important;\r\n    color: white !important;\r\n  }\r\n  \r\n  \r\n  .login-signup-link {\r\n    font-size: 12px !important;\r\n  }\r\n  \r\n\r\n  .card,\r\n  .row {\r\n    width: 100% !important;\r\n    max-width: 100% !important;\r\n  }\r\n  \r\n  [class*=\"col-md-4\"] {\r\n    display: none !important;\r\n  }\r\n  \r\n  [class*=\"col-md-7\"] {\r\n    flex: 0 0 100% !important;\r\n    max-width: 100% !important;\r\n    width: 100% !important;\r\n  }\r\n  \r\n  .signup-logo-box {\r\n    width: 100% !important;\r\n    height: 100px !important;\r\n    margin-bottom: 20px !important;\r\n    flex-direction: column !important;\r\n    padding: 10px !important;\r\n    margin-top: 10px;\r\n  }\r\n  \r\n  .signup-logo-box .mb-4 {\r\n    margin-bottom: 0 !important;\r\n    flex-direction: column !important;\r\n    align-items: center !important;\r\n    text-align: center !important;\r\n    gap: 20px !important;\r\n  }\r\n  \r\n  .signup-logo-box img {\r\n    margin: 0 !important;\r\n    margin-bottom: 8px !important;\r\n  }\r\n  \r\n  .signup-logo-box span {\r\n    margin: 0 !important;\r\n    text-align: center !important;\r\n    font-size: 18px !important;\r\n  }\r\n  \r\n  .signup-logo-box div {\r\n    flex-direction: column !important;\r\n    align-items: center !important;\r\n    text-align: center !important;\r\n  }\r\n  \r\n  .signup-logo-box div img {\r\n    margin: 0 0 8px 0 !important;\r\n  }\r\n  \r\n  .signup-logo-box div span {\r\n    margin: 0 !important;\r\n    font-size: 20px !important;\r\n    line-height: 1.2 !important;\r\n    text-align: center !important;\r\n    color: white !important;\r\n  }\r\n}\r\n\r\n@media (min-width: 576px) and (max-width: 768px) {\r\n  .card-container {\r\n    max-width: 90% !important;\r\n    min-width: 600px;\r\n  }\r\n  \r\n  .login-bg {\r\n    padding: 4px;\r\n  }\r\n  \r\n  .login-left {\r\n    padding: 1.25rem !important;\r\n    max-width: 65% !important;\r\n    flex: 0 0 65% !important;\r\n  }\r\n  \r\n  .login-logo-box {\r\n    width: 70px;\r\n    height: 45px;\r\n    margin-bottom: 25px;\r\n  }\r\n  \r\n  .login-right {\r\n    max-width: 35% !important;\r\n    flex: 0 0 35% !important;\r\n  }\r\n}\r\n\r\nhtml, body {\r\n  margin: 0;\r\n  padding: 0;\r\n  box-sizing: border-box;\r\n}\r\n\r\n*, *::before, *::after {\r\n  box-sizing: border-box;\r\n}\r\n\r\n"
+        }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "src/router/router.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1753675661165,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1753675661165,
+            "name": "Commit-0",
+            "content": "\r\nimport { BrowserRouter as Router, Routes, Route } from \"react-router-dom\";\r\nimport BaseLayout from \"../layouts/BaseLayout\";\r\nimport Login from \"../pages/login/login\";\r\nimport Signup from \"../pages/signup/signup\";\r\nimport Register from \"../pages/register/register\";\r\n\r\n\r\nconst RouterPage = () => (\r\n  <Router>\r\n    <Routes>\r\n      <Route path=\"/\" element={<Login />} />\r\n      <Route path=\"/login\" element={<Login />} />\r\n      <Route path=\"/signup\" element={<Signup />} />\r\n      <Route\r\n        path=\"/RegisterationForm\"\r\n        element={\r\n          <BaseLayout headerType=\"Header1\">\r\n            <Register />\r\n          </BaseLayout>\r\n        }\r\n      />\r\n    </Routes>\r\n  </Router>\r\n);\r\n\r\nexport default RouterPage;"
+        }
+    ]
+}

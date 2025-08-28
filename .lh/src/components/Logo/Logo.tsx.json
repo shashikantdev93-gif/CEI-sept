@@ -1,0 +1,30 @@
+{
+    "sourceFile": "src/components/Logo/Logo.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 3,
+            "patches": [
+                {
+                    "date": 1753672254120,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1753672261479,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -18,9 +18,9 @@\n         src=\"/assets/images/cei_logo.jpg\" \r\n         alt=\"Logo\" \r\n         style={{ height: \"40px\", width: \"90px\", marginTop: \"20px\", marginLeft: \"8px\" }} \r\n       />\r\n-      <span className=\"fw-bold\" style={{ fontSize: \"27px\", height: \"30px\", marginTop: \"10px\", marginLeft: \"19px\", color: titleColor, whiteSpace: \"nowrap\" }}>\r\n+      <span className=\"fw-bold\" style={{ fontSize: \"27px\", height: \"30px\", marginTop: \"10px\", marginLeft: \"20px\", color: titleColor, whiteSpace: \"nowrap\" }}>\r\n         {title} <span style={{ color: subtitleColor }}>{subtitle}</span>\r\n       </span>\r\n     </div>\r\n   );\r\n"
+                },
+                {
+                    "date": 1753672270159,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -16,9 +16,9 @@\n     <div className=\"mb-4 d-flex align-items-center\">\r\n       <img \r\n         src=\"/assets/images/cei_logo.jpg\" \r\n         alt=\"Logo\" \r\n-        style={{ height: \"40px\", width: \"90px\", marginTop: \"20px\", marginLeft: \"8px\" }} \r\n+        style={{ height: \"40px\", width: \"90px\", marginTop: \"20px\", marginLeft: \"15px\" }} \r\n       />\r\n       <span className=\"fw-bold\" style={{ fontSize: \"27px\", height: \"30px\", marginTop: \"10px\", marginLeft: \"20px\", color: titleColor, whiteSpace: \"nowrap\" }}>\r\n         {title} <span style={{ color: subtitleColor }}>{subtitle}</span>\r\n       </span>\r\n"
+                },
+                {
+                    "date": 1753672279630,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -16,11 +16,11 @@\n     <div className=\"mb-4 d-flex align-items-center\">\r\n       <img \r\n         src=\"/assets/images/cei_logo.jpg\" \r\n         alt=\"Logo\" \r\n-        style={{ height: \"40px\", width: \"90px\", marginTop: \"20px\", marginLeft: \"15px\" }} \r\n+        style={{ height: \"40px\", width: \"90px\", marginTop: \"20px\", marginLeft: \"8px\" }} \r\n       />\r\n-      <span className=\"fw-bold\" style={{ fontSize: \"27px\", height: \"30px\", marginTop: \"10px\", marginLeft: \"20px\", color: titleColor, whiteSpace: \"nowrap\" }}>\r\n+      <span className=\"fw-bold\" style={{ fontSize: \"27px\", height: \"30px\", marginTop: \"10px\", marginLeft: \"25px\", color: titleColor, whiteSpace: \"nowrap\" }}>\r\n         {title} <span style={{ color: subtitleColor }}>{subtitle}</span>\r\n       </span>\r\n     </div>\r\n   );\r\n"
+                }
+            ],
+            "date": 1753672254120,
+            "name": "Commit-0",
+            "content": "import React from \"react\";\r\n\r\ninterface LogoProps {\r\n  title?: string;\r\n  subtitle?: string;\r\n  titleColor?: string;\r\n}\r\n\r\nconst Logo: React.FC<LogoProps & { subtitleColor?: string }> = ({ \r\n  title = \"Chief Electric \", \r\n  subtitle = \"Inspector\", \r\n  titleColor = \"#0c3064\",\r\n  subtitleColor = \"#0c3064\",\r\n}) => {\r\n  return (\r\n    <div className=\"mb-4 d-flex align-items-center\">\r\n      <img \r\n        src=\"/assets/images/cei_logo.jpg\" \r\n        alt=\"Logo\" \r\n        style={{ height: \"40px\", width: \"90px\", marginTop: \"20px\", marginLeft: \"8px\" }} \r\n      />\r\n      <span className=\"fw-bold\" style={{ fontSize: \"27px\", height: \"30px\", marginTop: \"10px\", marginLeft: \"19px\", color: titleColor, whiteSpace: \"nowrap\" }}>\r\n        {title} <span style={{ color: subtitleColor }}>{subtitle}</span>\r\n      </span>\r\n    </div>\r\n  );\r\n};\r\n\r\nexport default Logo;\r\n"
+        }
+    ]
+}
