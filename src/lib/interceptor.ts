@@ -114,12 +114,7 @@ class AxiosInterceptor {
           config.headers.set('Accept', 'application/json');
           config.headers.set('Content-Type', 'application/json');
         }
-      // Add timestamp to prevent caching
-      config.params = { 
-        ...config.params, 
-        _t: new Date().getTime() 
-      };
-
+  
       
 
       // Handle authentication
