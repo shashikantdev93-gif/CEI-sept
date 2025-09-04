@@ -294,9 +294,32 @@ export const userDetailsService = {
       );
       
       console.log('✅ [USER-SERVICE] Working area added successfully:', response);
+      console.log('📥 [USER-SERVICE] Response structure:', {
+        success: response.success,
+        status: response.status,
+        hasData: !!response.data,
+        message: response.message
+      });
+      
       return response;
     } catch (error) {
       console.error('❌ [USER-SERVICE] Error adding working area:', error);
+      throw error;
+    }
+  },
+
+  async getContractorApplicationDetailsById(applicationId: number): Promise<ApiResponse<any>> {
+    console.log('🔄 [USER-SERVICE] Fetching fresh contractor data for ID:', applicationId);
+    
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/ContractorLicence/getContractorApplicationDetails_ById?id=${applicationId}`
+      );
+      
+      console.log('✅ [USER-SERVICE] Fresh contractor data fetched:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error fetching contractor data:', error);
       throw error;
     }
   },
@@ -322,9 +345,4 @@ export const userDetailsService = {
     console.log('🤝 [USER-SERVICE] Adding partner:', payload);
     return axiosInterceptor.post<PartnerResponse>('/ContractorLicence/addUpdateContract_PartnerDetails', payload);
   },
-
-  async getContractorApplicationDetailsById(id: number): Promise<ApiResponse<SavedContractorData>> {
-    console.log('🔄 [USER-SERVICE] Fetching contractor details by ID:', id);
-    return axiosInterceptor.get<SavedContractorData>(`/ContractorLicence/getContractorApplicationDetails_ById?id=${id}`);
-  }
 };

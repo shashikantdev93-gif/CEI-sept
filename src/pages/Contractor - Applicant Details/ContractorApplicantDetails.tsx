@@ -77,6 +77,7 @@ const ContractorApplicantDetails: React.FC = () => {
   handleFileUploaded
 } = useContractorForm();
 
+
   // Clean up navigation flags
   React.useEffect(() => {
     sessionStorage.removeItem('allowContractorDetailsNavigation');
@@ -84,6 +85,25 @@ const ContractorApplicantDetails: React.FC = () => {
       sessionStorage.removeItem('allowContractorDetailsNavigation');
     };
   }, []);
+
+  React.useEffect(() => {
+  if (saveSuccess) {
+    const timer = setTimeout(() => {
+      setSaveSuccess(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }
+}, [saveSuccess, setSaveSuccess]);
+
+// Auto-hide error messages after 8 seconds (OPTIONAL - ADD THIS TOO)
+  React.useEffect(() => {
+    if (saveError) {
+      const timer = setTimeout(() => {
+        setSaveError(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveError, setSaveError]);
 
   const handleBack = () => navigate(-1);
 
@@ -174,6 +194,10 @@ const ContractorApplicantDetails: React.FC = () => {
                 </Button>
               </div>
             )}
+
+            
+            
+            
 
             {/* Location Errors Display */}
             {(locationErrors.districts || locationErrors.tehsils) && (
@@ -411,12 +435,15 @@ const ContractorApplicantDetails: React.FC = () => {
                     className="btn btn-primary"
                     style={{
                       fontSize: '12px',
-                      borderRadius: '0px !important'
+                      borderRadius: '0px !important',
+                      minWidth: '160px', // Prevent button size changes
+                      position: 'relative'
                     }}
                   >
                     {isAddingWorkingArea ? (
                       <>
-                        <i className="fa fa-spinner fa-spin"></i> &nbsp; Adding...
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Adding...
                       </>
                     ) : (
                       <>
@@ -426,6 +453,8 @@ const ContractorApplicantDetails: React.FC = () => {
                   </button>
                 </Col>
               </Row>
+
+              
 
               <div className="mt-4">
                 <DataTable
