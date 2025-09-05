@@ -4,6 +4,7 @@ import { ToastService } from '../utils';
 import encryptionService from '../lib/encryptionService';
 import { userDetailsService } from '../services/api/userDetailsService';
 import type { ContractorApplicationPayload, SavedContractorData } from '../services/api/userDetailsService';
+import { ProjectSiteDataMapper } from '../utils/projectSiteDataMapper';
 
 interface ProjectSiteData {
   projectSiteId?: number;
@@ -62,6 +63,8 @@ interface UseProjectSiteAPIOptions {
   // Add contractor-specific callbacks
   onContractorSaveSuccess?: (data: any) => void;
   onContractorSaveError?: (error: string) => void;
+  autoFillContractorForm?: boolean;
+  onApplicantDataExtracted?: (data: { name: string; address: string; pan: string }) => void;
 }
 
 
@@ -88,6 +91,25 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  const extractApplicantData = useCallback((projectSiteResponse: any) => {
+    if (!projectSiteResponse) return null;
+
+    const extractedData = {
+      name: ProjectSiteDataMapper.getApplicantNameFromProjectSite(projectSiteResponse),
+      address: ProjectSiteDataMapper.getApplicantAddressFromProjectSite(projectSiteResponse), 
+      pan: ProjectSiteDataMapper.getApplicantPANFromProjectSite(projectSiteResponse)
+    };
+
+    console.log('📋 [PROJECT-SITE-API] Extracted applicant data:', extractedData);
+
+    // Call the callback if provided
+    if (options.onApplicantDataExtracted) {
+      options.onApplicantDataExtracted(extractedData);
+    }
+
+    return extractedData;
+  }, [options.onApplicantDataExtracted]);
+
   // Memoize getProjectSiteId to prevent recreation
   const getProjectSiteId = useCallback((): string | null => {
     try {
@@ -104,8 +126,8 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
     } catch (error) {
       console.error(`❌ [${pageType.toUpperCase()} API]: Error getting project site ID:`, error);
     }
-    console.log(`🔄 [${pageType.toUpperCase()} API]: Using fallback project site ID: 499`);
-    return '499';
+    console.log(`🔄 [${pageType.toUpperCase()} API]: Using fallback project site ID: 493`);
+    return '493';
   }, [pageType]);
 
   // Load dashboard counts (if enabled) - memoized
@@ -158,27 +180,23 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
         `/ProjectSites/getProjectSitesDetails_ById?id=${projectSiteId}`
       );
       
-      console.log(`📥 [${pageType.toUpperCase()} API]: Full response:`, response);
-      
-      // FIX: Extract formModel from response.data, not response.data.formModel
       if (response.success && response.data?.formModel) {
-        const projectSiteData = response.data.formModel; // This is the actual data
-        
         console.log(`✅ [${pageType.toUpperCase()} API]: Project site details loaded successfully`);
-        console.log(`📊 [${pageType.toUpperCase()} API]: Extracted formModel:`, projectSiteData);
+        console.log(`📊 [${pageType.toUpperCase()} API]: Response data:`, response.data.formModel);
         
-        setProjectSiteData(projectSiteData);
+        setProjectSiteData(response.data.formModel);
         
-        // Call onDataLoaded with the correct data structure
+         if (options.autoFillContractorForm && pageType === 'contractorApplication') {
+          extractApplicantData(response.data);
+        }
+
         if (optionsRef.current.onDataLoaded) {
-          console.log(`🎯 [${pageType.toUpperCase()} API]: Calling onDataLoaded with data:`, projectSiteData);
-          optionsRef.current.onDataLoaded(projectSiteData);
+          optionsRef.current.onDataLoaded(response.data.formModel);
         }
         
       } else if (response.data?.hasError) {
         throw new Error(response.data.errorDesc || 'API returned an error');
       } else {
-        console.error(`❌ [${pageType.toUpperCase()} API]: Invalid response format:`, response);
         throw new Error('Invalid response format');
       }
     } catch (err: any) {
@@ -197,7 +215,7 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
     } finally {
       setLoading(false);
     }
-  }, [pageType, getProjectSiteId]); // Remove loading from dependencies
+  }, [pageType, getProjectSiteId, loading, extractApplicantData, options.autoFillContractorForm]); // Removed callbacks from dependencies
 
   // Get count for specific category (for dashboard) - memoized
   const getCountForCategory = useCallback((category: string): number => {
@@ -354,6 +372,7 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
     loadDashboardCounts,
     
     // Add contractor-specific actions to return
+    extractApplicantData,
     saveContractorApplication,
     loadContractorApplication,
     clearContractorError

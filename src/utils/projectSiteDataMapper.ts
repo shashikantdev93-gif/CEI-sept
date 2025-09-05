@@ -9,6 +9,7 @@ interface ProjectSiteData {
   address2?: string;
   createdOnDate?: string;
   pinCode?: number;
+  applicantPanNumber?: string;
   users?: {
     userName?: string;
     userProfileMapping?: {
@@ -299,5 +300,106 @@ export class ProjectSiteDataMapper {
         throw new Error(`Unsupported page type: ${pageType}`);
     }
   }
+
+  static getContractorApplicantName(projectSiteData: ProjectSiteData): string {
+    console.log('📋 [CONTRACTOR-MAPPER] Extracting applicant name for contractor form');
+    
+    try {
+      const userProfile = projectSiteData?.users?.userProfileMapping?.userProfile;
+      
+      if (userProfile?.firstName || userProfile?.lastName) {
+        const firstName = userProfile.firstName || '';
+        const lastName = userProfile.lastName || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        
+        console.log('✅ [CONTRACTOR-MAPPER] Applicant name extracted:', fullName);
+        return fullName;
+      }
+      
+      console.log('⚠️ [CONTRACTOR-MAPPER] No applicant name found');
+      return '';
+    } catch (error) {
+      console.error('❌ [CONTRACTOR-MAPPER] Error extracting applicant name:', error);
+      return '';
+    }
+  }
+
+  static getContractorApplicantAddress(projectSiteData: ProjectSiteData): string {
+    console.log('📋 [CONTRACTOR-MAPPER] Extracting applicant address for contractor form');
+    
+    try {
+      const userProfile = projectSiteData?.users?.userProfileMapping?.userProfile;
+      
+      // Try communication address first (Angular priority)
+      if (userProfile?.commuAddress1 || userProfile?.commuAddress2) {
+        const address1 = userProfile.commuAddress1 || '';
+        const address2 = userProfile.commuAddress2 || '';
+        const fullAddress = `${address1} ${address2}`.trim();
+        
+        console.log('✅ [CONTRACTOR-MAPPER] Applicant address from user profile:', fullAddress);
+        return fullAddress;
+      }
+      
+      // Fallback to project site address fields
+      if (projectSiteData?.address1 || projectSiteData?.address2) {
+        const address1 = projectSiteData.address1 || '';
+        const address2 = projectSiteData.address2 || '';
+        const fullAddress = `${address1} ${address2}`.trim();
+        
+        console.log('✅ [CONTRACTOR-MAPPER] Applicant address from project site:', fullAddress);
+        return fullAddress;
+      }
+      
+      console.log('⚠️ [CONTRACTOR-MAPPER] No applicant address found');
+      return '';
+    } catch (error) {
+      console.error('❌ [CONTRACTOR-MAPPER] Error extracting applicant address:', error);
+      return '';
+    }
+  }
+
+  static getContractorApplicantPAN(projectSiteData: ProjectSiteData): string {
+    console.log('📋 [CONTRACTOR-MAPPER] Extracting applicant PAN for contractor form');
+    
+    try {
+      const panNumber = projectSiteData?.applicantPanNumber;
+      
+      if (panNumber && panNumber.trim() !== '') {
+        console.log('✅ [CONTRACTOR-MAPPER] Applicant PAN extracted:', panNumber);
+        return panNumber.trim();
+      }
+      
+      console.log('⚠️ [CONTRACTOR-MAPPER] No applicant PAN found');
+      return '';
+    } catch (error) {
+      console.error('❌ [CONTRACTOR-MAPPER] Error extracting applicant PAN:', error);
+      return '';
+    }
+  }
+
+  static getContractorFormData(projectSiteData: ProjectSiteData): {
+    applicantName: string;
+    applicantAddress: string;
+    applicantPAN: string;
+  } {
+    console.log('📋 [CONTRACTOR-MAPPER] ===== EXTRACTING CONTRACTOR FORM DATA =====');
+    console.log('📋 [CONTRACTOR-MAPPER] Input projectSiteData:', projectSiteData);
+    console.log('📋 [CONTRACTOR-MAPPER] Users object:', projectSiteData?.users);
+    console.log('📋 [CONTRACTOR-MAPPER] UserProfileMapping:', projectSiteData?.users?.userProfileMapping);
+    console.log('📋 [CONTRACTOR-MAPPER] UserProfile:', projectSiteData?.users?.userProfileMapping?.userProfile);
+    console.log('📋 [CONTRACTOR-MAPPER] ApplicantPanNumber:', projectSiteData?.applicantPanNumber);
+    
+    const result = {
+      applicantName: this.getContractorApplicantName(projectSiteData),
+      applicantAddress: this.getContractorApplicantAddress(projectSiteData),
+      applicantPAN: this.getContractorApplicantPAN(projectSiteData)
+    };
+    
+    console.log('📋 [CONTRACTOR-MAPPER] ===== FINAL EXTRACTED DATA =====');
+    console.log('📋 [CONTRACTOR-MAPPER] Result:', result);
+    
+    return result;
+  }
+  
 }
 

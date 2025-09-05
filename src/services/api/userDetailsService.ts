@@ -226,6 +226,44 @@ export interface SavedContractorData {
   }>;
 }
 
+export interface ProjectSiteDetailsResponse {
+  formModel?: {
+    projectSiteId?: number;
+    projectSiteApplicationType?: number;
+    state?: number;
+    villageOrTown?: string;
+    address1?: string;
+    address2?: string;
+    tehsilRefId?: number;
+    districtRefId?: number;
+    pinCode?: number;
+    applicantPanNumber?: string;
+    userRefId?: number;
+    users?: {
+      userId?: number;
+      userName?: string;
+      userProfileMapping?: {
+        userProfile?: {
+          firstName?: string;
+          lastName?: string;
+          mobileNo?: string;
+          email?: string;
+          commuAddress1?: string;
+          commuAddress2?: string;
+        }
+      }
+    };
+    applications?: any[];
+  };
+  combinedAgendaModel?: any;
+  isEditAllowed?: boolean;
+  isLocked?: boolean;
+  hasError?: boolean;
+  errorDesc?: string;
+  applicationLifeCycleStatusType?: number;
+}
+
+
 export const userDetailsService = {
   // Basic User Services
   async generateOTP(payload: GenerateOTPPayload): Promise<ApiResponse<OTPResponse>> {
@@ -284,8 +322,6 @@ export const userDetailsService = {
 
   async addWorkingArea(payload: WorkingAreaPayload): Promise<ApiResponse<WorkingAreaResponse>> {
     console.log('🔄 [USER-SERVICE] Adding working area with payload:', payload);
-    console.log('🔄 [USER-SERVICE] API endpoint: /ContractorLicence/addUpdateContract_WorkingArea');
-    console.log('🔄 [USER-SERVICE] HTTP method: POST');
     
     try {
       const response = await axiosInterceptor.post<WorkingAreaResponse>(
@@ -294,13 +330,6 @@ export const userDetailsService = {
       );
       
       console.log('✅ [USER-SERVICE] Working area added successfully:', response);
-      console.log('📥 [USER-SERVICE] Response structure:', {
-        success: response.success,
-        status: response.status,
-        hasData: !!response.data,
-        message: response.message
-      });
-      
       return response;
     } catch (error) {
       console.error('❌ [USER-SERVICE] Error adding working area:', error);
@@ -309,17 +338,17 @@ export const userDetailsService = {
   },
 
   async getContractorApplicationDetailsById(applicationId: number): Promise<ApiResponse<any>> {
-    console.log('🔄 [USER-SERVICE] Fetching fresh contractor data for ID:', applicationId);
+    console.log('🔄 [USER-SERVICE] Fetching contractor application details for ID:', applicationId);
     
     try {
       const response = await axiosInterceptor.get<any>(
         `/ContractorLicence/getContractorApplicationDetails_ById?id=${applicationId}`
       );
       
-      console.log('✅ [USER-SERVICE] Fresh contractor data fetched:', response);
+      console.log('✅ [USER-SERVICE] Contractor application details fetched:', response);
       return response;
     } catch (error) {
-      console.error('❌ [USER-SERVICE] Error fetching contractor data:', error);
+      console.error('❌ [USER-SERVICE] Error fetching contractor application details:', error);
       throw error;
     }
   },
@@ -345,4 +374,7 @@ export const userDetailsService = {
     console.log('🤝 [USER-SERVICE] Adding partner:', payload);
     return axiosInterceptor.post<PartnerResponse>('/ContractorLicence/addUpdateContract_PartnerDetails', payload);
   },
+
+  
+  
 };

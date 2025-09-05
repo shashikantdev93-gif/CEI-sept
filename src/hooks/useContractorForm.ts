@@ -7,7 +7,7 @@ import { INSTRUMENT_LISTS, WORKING_AREA_ERRORS, WORKING_AREA_SUCCESS_MESSAGES } 
 import { useContractorApplication } from './useContractorApplication';
 import { validateWorkingAreaDuplicate, createWorkingAreaPayload } from '../utils/contractorUtils'; // Add missing imports
 import { ToastService } from '../utils/navigation'; // Add missing import
-
+import { useProjectSiteAPI } from './useProjectSiteAPI';
 
 export const useContractorForm = () => {
   // Basic Form State
@@ -69,6 +69,41 @@ export const useContractorForm = () => {
     checkApplicationExists
   } = useContractorApplication();
 
+  const {
+    projectSiteData,
+    loading: projectSiteLoading,
+    error: projectSiteError,
+    loadProjectSiteDetails
+  } = useProjectSiteAPI({
+    pageType: 'contractorApplication',
+    autoLoad: false, // We'll load manually
+    onDataLoaded: (data) => {
+      console.log('🎯 [CONTRACTOR-FORM] Project site data loaded, extracting contractor data...');
+      
+      // Extract and populate contractor form fields
+      const contractorData = ProjectSiteDataMapper.getContractorFormData(data);
+      
+      if (contractorData.applicantName) {
+        setApplicantName(contractorData.applicantName);
+        console.log('✅ [CONTRACTOR-FORM] Applicant name auto-filled:', contractorData.applicantName);
+      }
+      
+      if (contractorData.applicantAddress) {
+        setAddress(contractorData.applicantAddress);
+        console.log('✅ [CONTRACTOR-FORM] Applicant address auto-filled:', contractorData.applicantAddress);
+      }
+      
+      if (contractorData.applicantPAN) {
+        setPanCardNumber(contractorData.applicantPAN);
+        console.log('✅ [CONTRACTOR-FORM] Applicant PAN auto-filled:', contractorData.applicantPAN);
+      }
+    },
+    onError: (error) => {
+      console.error('❌ [CONTRACTOR-FORM] Error loading project site data:', error);
+      setSaveError('Failed to load applicant details. Please refresh the page.');
+    }
+  });
+
   // Helper function to get current form data
   const getCurrentFormData = useCallback(() => ({
     applicant_name,
@@ -92,238 +127,335 @@ export const useContractorForm = () => {
 
   // Validate working area form
   const validateWorkingAreaForm = useCallback((): boolean => {
-  const errors: typeof workingAreaFormErrors = {};
-  
-  if (!workingOnDistrict) {
-    errors.district = 'District is required';
-  }
-  
-  if (!workingOnTehsil) {
-    errors.tehsil = 'Tehsil is required';
-  }
-  
-  setWorkingAreaFormErrors(errors);
-  return Object.keys(errors).length === 0;
-}, [workingOnDistrict, workingOnTehsil]);
+    const errors: typeof workingAreaFormErrors = {};
+    
+    if (!workingOnDistrict) {
+      errors.district = 'District is required';
+    }
+    
+    if (!workingOnTehsil) {
+      errors.tehsil = 'Tehsil is required';
+    }
+    
+    setWorkingAreaFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [workingOnDistrict, workingOnTehsil]);
 
   // Load initial data
   useEffect(() => {
+    let isMounted = true;
     const loadInitialData = async () => {
+      console.log('🚀 [CONTRACTOR-FORM] Loading initial applicant data...');
+      
       try {
-        const response = await userDetailsService.getProjectSiteData();
-        if (response.data?.users?.userProfileMapping?.userProfile) {
-          const userProfile = response.data.users.userProfileMapping.userProfile;
-          
-          setApplicantName(ProjectSiteDataMapper.getApplicantName(userProfile));
-          setAddress(ProjectSiteDataMapper.getCommunicationAddress(userProfile));
-          setPanCardNumber(response.data.applicantPanNumber || "");
+        // Load project site details using the existing hook
+        console.log('🌐 [CONTRACTOR-FORM] Loading project site details...');
+        await loadProjectSiteDetails();
+        
+        // Load districts for Punjab (existing logic)
+        console.log('🌐 [CONTRACTOR-FORM] Loading districts for Punjab...');
+        if (isMounted) {
+          loadDistricts(3); // Punjab state ID
         }
-        setIsInitialLoad(false);
+        
+        console.log('✅ [CONTRACTOR-FORM] Initial data loading completed successfully');
+        
       } catch (error) {
-        console.error('Failed to load initial data:', error);
-        setIsInitialLoad(false);
+        console.error('❌ [CONTRACTOR-FORM] Error loading initial data:', error);
+        if (isMounted) {
+          setSaveError('Failed to load applicant details. Please refresh the page.');
+          // Still load districts even if project site data fails
+          loadDistricts(3);
+        }
+      } finally {
+        // ALWAYS set loading to false when done, regardless of success or failure
+        if (isMounted) {
+          setIsInitialLoad(false);
+          console.log('🏁 [CONTRACTOR-FORM] Initial load completed, setting isInitialLoad to false');
+        }
       }
     };
 
     loadInitialData();
-    loadDistricts(3); // Load districts for Punjab (ID: 3)
-  }, [loadDistricts]);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Ensure application exists before operations
   const ensureApplicationExists = useCallback(async (): Promise<number | null> => {
-  console.log('🔍 [CONTRACTOR-FORM] Checking if application exists...');
-  
-  if (checkApplicationExists()) {
-    console.log('✅ [CONTRACTOR-FORM] Application exists:', applicationId);
-    return applicationId;
-  }
-
-  console.log('📝 [CONTRACTOR-FORM] Application does not exist, creating...');
-  const formData = getCurrentFormData();
-  return await createApplication(formData);
-}, [applicationId, checkApplicationExists, createApplication, getCurrentFormData]);
-
-// FIXED: Add missing dependency array to refreshContractorData
-const refreshContractorData = useCallback(async () => {
-  if (!applicationId) return;
-  
-  try {
-    console.log('🔄 [CONTRACTOR-FORM] Refreshing contractor data...');
-    const response = await userDetailsService.getContractorApplicationDetailsById(applicationId);
+    console.log('🔍 [CONTRACTOR-FORM] Checking if application exists...');
     
-    if (response.success && response.data) {
-      // Update working areas from fresh data
-      const freshWorkingAreas = response.data.workingAreas?.map((area: any, index: number) => ({
-        id: area.id || Date.now() + index,
-        district: area.districtName,
-        tehsil: area.tehsilName,
-        action: 'Delete',
-        districtRefId: area.districtCode,
-        tehsilRefId: area.tehsilId,
-        appRefId: area.appRefId
-      })) || [];
-      
-      setWorkingAreas(freshWorkingAreas);
-      console.log('✅ [CONTRACTOR-FORM] Data refreshed successfully');
+    if (checkApplicationExists()) {
+      console.log('✅ [CONTRACTOR-FORM] Application exists:', applicationId);
+      return applicationId;
     }
-  } catch (error) {
-    console.error('❌ [CONTRACTOR-FORM] Error refreshing data:', error);
-  }
-}, [applicationId]);
+
+    console.log('📝 [CONTRACTOR-FORM] Application does not exist, creating...');
+    const formData = getCurrentFormData();
+    return await createApplication(formData);
+  }, [applicationId, checkApplicationExists, createApplication, getCurrentFormData]);
+
+  const refreshContractorData = useCallback(async () => {
+    if (!applicationId) {
+      console.log('⚠️ [CONTRACTOR-FORM] No applicationId available for refresh');
+      return;
+    }
+    
+    try {
+      console.log('🔄 [CONTRACTOR-FORM] Refreshing contractor data from server...');
+      const response = await userDetailsService.getContractorApplicationDetailsById(applicationId);
+      
+      if (response.success && response.data) {
+        console.log('📥 [CONTRACTOR-FORM] Fresh data received:', response.data);
+        
+        // Update working areas from server response
+        if (response.data.workingAreas) {
+          const freshWorkingAreas = response.data.workingAreas.map((area: any, index: number) => ({
+            id: area.tehsilLevelUserMappingId || Date.now() + index,
+            district: area.districtName,
+            tehsil: area.tehsilName,
+            action: 'Delete',
+            districtRefId: area.districtRefId,
+            tehsilRefId: area.tehsilRefId,
+            appRefId: area.appRefId
+          }));
+          
+          setWorkingAreas(freshWorkingAreas);
+          console.log('✅ [CONTRACTOR-FORM] Working areas updated from server');
+        }
+        
+        // Update instruments if available
+        if (response.data.instruments) {
+          const freshInstruments = response.data.instruments.map((inst: any, index: number) => ({
+            id: inst.contactInstrumentId || Date.now() + index,
+            instrumentType: inst.instrumentTypeName,
+            instrumentSerialNo: inst.instrumentSerialNo,
+            instrumentMake: inst.instrumentMakeBy,
+            instrumentRange: `${inst.instrumentStartRange}-${inst.instrumentEndRange}`,
+            district: inst.districtName,
+            tehsil: inst.tehsilName,
+            action: 'Delete'
+          }));
+          
+          setInstruments(freshInstruments);
+          console.log('✅ [CONTRACTOR-FORM] Instruments updated from server');
+        }
+        
+        // Update partners if available
+        if (response.data.partners) {
+          const freshPartners = response.data.partners.map((partner: any, index: number) => ({
+            id: partner.contactPartnershipId || Date.now() + index,
+            name: partner.contrPartnerName,
+            email: partner.contrPartnerEmail,
+            mobileNumber: partner.contrPartnerContactNo,
+            photo: partner.contrPartnerPhoto,
+            pan: partner.panNoPhoto,
+            panNo: partner.panNo,
+            action: 'Delete'
+          }));
+          
+          setPartners(freshPartners);
+          console.log('✅ [CONTRACTOR-FORM] Partners updated from server');
+        }
+        
+        console.log('✅ [CONTRACTOR-FORM] All data refreshed successfully');
+      } else {
+        console.warn('⚠️ [CONTRACTOR-FORM] Server response was not successful:', response);
+      }
+    } catch (error) {
+      console.error('❌ [CONTRACTOR-FORM] Error refreshing contractor data:', error);
+      // Don't show error to user for refresh failures, just log it
+    }
+  }, [applicationId]);
 
   // Enhanced Add Working Area with validation and application check
-const handleAddWorkingArea = useCallback(async () => {
-  console.log('🚀 [ADD-WORKING-AREA] Function started');
-  console.log('🚀 [ADD-WORKING-AREA] Form values:', {
-    workingOnDistrict,
-    workingOnTehsil
-  });
+  const handleAddWorkingArea = useCallback(async () => {
+    console.log('🚀 [ADD-WORKING-AREA] Function started');
+    console.log('🚀 [ADD-WORKING-AREA] Form values:', {
+      workingOnDistrict,
+      workingOnTehsil
+    });
 
-  // STEP 1: Set form submission flag for validation (matches Angular formSubmittedW = true)
-  const errors: typeof workingAreaFormErrors = {};
-  
-  if (!workingOnDistrict) {
-    errors.district = WORKING_AREA_ERRORS.DISTRICT_REQUIRED;
-  }
-  
-  if (!workingOnTehsil) {
-    errors.tehsil = WORKING_AREA_ERRORS.TEHSIL_REQUIRED;
-  }
-  
-  setWorkingAreaFormErrors(errors);
-
-  // STEP 2: Validate the working area form (matches Angular !this.workingAreaForm.valid)
-  if (Object.keys(errors).length > 0) {
-    console.log('❌ [ADD-WORKING-AREA] Form validation failed');
-    setSaveError('Please fill all required fields');
-    return;
-  }
-
-  try {
-    // STEP 3: Check if application details exist, create if needed (matches Angular apprefId check)
-    console.log('🚀 [ADD-WORKING-AREA] Current applicationId:', applicationId);
+    // STEP 1: Set form submission flag for validation (matches Angular formSubmittedW = true)
+    const errors: typeof workingAreaFormErrors = {};
     
-    let currentApplicationId = applicationId;
-    
-    if (!currentApplicationId || currentApplicationId === 0) {
-      console.log('📝 [ADD-WORKING-AREA] applicationId is 0/undefined, calling ensureApplicationExists');
-      try {
-        currentApplicationId = await ensureApplicationExists();
-        if (!currentApplicationId) {
-          console.error('❌ [ADD-WORKING-AREA] Error in ensureApplicationExists');
-          setSaveError(WORKING_AREA_ERRORS.APPLICATION_CREATE_FAILED);
-          return;
-        }
-        console.log('✅ [ADD-WORKING-AREA] ensureApplicationExists completed successfully');
-      } catch (error) {
-        console.error('❌ [ADD-WORKING-AREA] Error in ensureApplicationExists:', error);
-        setSaveError(WORKING_AREA_ERRORS.APPLICATION_CREATE_FAILED);
-        return;
-      }
+    if (!workingOnDistrict) {
+      errors.district = WORKING_AREA_ERRORS.DISTRICT_REQUIRED;
     }
+    
+    if (!workingOnTehsil) {
+      errors.tehsil = WORKING_AREA_ERRORS.TEHSIL_REQUIRED;
+    }
+    
+    setWorkingAreaFormErrors(errors);
 
-    // STEP 4: Check for duplicate working area entries (EXACT Angular logic)
-    console.log('🔍 [ADD-WORKING-AREA] Checking for duplicate entries');
-    const districtRefId = workingOnDistrict as number;
-    const tehsilRefId = workingOnTehsil as number;
-    
-    const existingWorkingAreas = workingAreas || [];
-    
-    const duplicateCheck = validateWorkingAreaDuplicate(
-      districtRefId,
-      tehsilRefId,
-      existingWorkingAreas,
-      districts,
-      tehsils
-    );
-    
-    if (duplicateCheck.isDuplicate) {
-      console.log('⚠️ [ADD-WORKING-AREA] Duplicate found, showing error');
-      setSaveError(WORKING_AREA_ERRORS.DUPLICATE_AREA);
-      ToastService.error(WORKING_AREA_ERRORS.DUPLICATE_AREA);
+    // STEP 2: Validate the working area form (matches Angular !this.workingAreaForm.valid)
+    if (Object.keys(errors).length > 0) {
+      console.log('❌ [ADD-WORKING-AREA] Form validation failed');
+      setSaveError('Please fill all required fields');
       return;
     }
 
-    // STEP 5: Create working area payload (matches Angular workingAreaPayload structure)
-    console.log('📦 [ADD-WORKING-AREA] Creating working area payload');
-    const selectedDistrict = districts.find(d => d.districtCode === districtRefId);
-    const selectedTehsil = tehsils.find(t => t.tehsilId === tehsilRefId);
-
-    const workingAreaPayload = createWorkingAreaPayload(
-      currentApplicationId,
-      districtRefId,
-      tehsilRefId,
-      selectedDistrict?.districtName || '',
-      selectedTehsil?.tehsilName || ''
-    );
-
-    console.log('📦 [ADD-WORKING-AREA] Final payload:', workingAreaPayload);
-
-    // STEP 6: Make API call (matches Angular API call structure)
-    console.log('🌐 [ADD-WORKING-AREA] Making API call to backend...');
-    
-    // Show spinner (matches Angular this.spinner.show())
-    setIsAddingWorkingArea(true);
-    
-    const response = await userDetailsService.addWorkingArea(workingAreaPayload);
-
-    if (response.success) {
-      // STEP 7: Handle success response (matches Angular success handler)
-      console.log('✅ [ADD-WORKING-AREA] API call successful');
+    try {
+      // STEP 3: Check if application details exist, create if needed (matches Angular apprefId check)
+      console.log('🚀 [ADD-WORKING-AREA] Current applicationId:', applicationId);
       
-      // Hide spinner (matches Angular this.spinner.hide())
+      let currentApplicationId = applicationId;
+      
+      if (!currentApplicationId || currentApplicationId === 0) {
+        console.log('📝 [ADD-WORKING-AREA] applicationId is 0/undefined, calling ensureApplicationExists');
+        try {
+          currentApplicationId = await ensureApplicationExists();
+          if (!currentApplicationId) {
+            console.error('❌ [ADD-WORKING-AREA] Error in ensureApplicationExists');
+            setSaveError(WORKING_AREA_ERRORS.APPLICATION_CREATE_FAILED);
+            return;
+          }
+          console.log('✅ [ADD-WORKING-AREA] ensureApplicationExists completed successfully');
+        } catch (error) {
+          console.error('❌ [ADD-WORKING-AREA] Error in ensureApplicationExists:', error);
+          setSaveError(WORKING_AREA_ERRORS.APPLICATION_CREATE_FAILED);
+          return;
+        }
+      }
+
+      // STEP 4: Check for duplicate working area entries (EXACT Angular logic)
+      console.log('🔍 [ADD-WORKING-AREA] Checking for duplicate entries');
+      const districtRefId = workingOnDistrict as number;
+      const tehsilRefId = workingOnTehsil as number;
+      
+      const existingWorkingAreas = workingAreas || [];
+      
+      const duplicateCheck = validateWorkingAreaDuplicate(
+        districtRefId,
+        tehsilRefId,
+        existingWorkingAreas,
+        districts,
+        tehsils
+      );
+      
+      if (duplicateCheck.isDuplicate) {
+        console.log('⚠️ [ADD-WORKING-AREA] Duplicate found, showing error');
+        setSaveError(WORKING_AREA_ERRORS.DUPLICATE_AREA);
+        ToastService.error(WORKING_AREA_ERRORS.DUPLICATE_AREA);
+        return;
+      }
+
+      // STEP 5: Create working area payload (matches Angular workingAreaPayload structure)
+      console.log('📦 [ADD-WORKING-AREA] Creating working area payload');
+      const selectedDistrict = districts.find(d => d.districtCode === districtRefId);
+      const selectedTehsil = tehsils.find(t => t.tehsilId === tehsilRefId);
+
+      const workingAreaPayload = createWorkingAreaPayload(
+        currentApplicationId,
+        districtRefId,
+        tehsilRefId,
+        selectedDistrict?.districtName || '',
+        selectedTehsil?.tehsilName || ''
+      );
+
+      console.log('📦 [ADD-WORKING-AREA] Final payload:', workingAreaPayload);
+
+      // STEP 6: Make API call with loading state
+      console.log('🌐 [ADD-WORKING-AREA] Making API call to backend...');
+      setIsAddingWorkingArea(true); // Show spinner (matches Angular this.spinner.show())
+      
+      const response = await userDetailsService.addWorkingArea(workingAreaPayload);
+      
+      console.log('📥 [ADD-WORKING-AREA] API Response received:', response);
+
+      // STEP 7: Handle success response (EXACT Angular match)
+      if (response.success) {
+        console.log('✅ [ADD-WORKING-AREA] API call successful');
+        
+        // Hide spinner (matches Angular this.spinner.hide())
+        setIsAddingWorkingArea(false);
+        
+        // Clear form exactly like Angular
+        console.log('🧹 [ADD-WORKING-AREA] Clearing form fields...');
+        setWorkingOnDistrict(""); // matches districtRefId: ""
+        setWorkingOnTehsil("");   // matches tehsilRefId: ""
+        setWorkingAreaFormErrors({}); // matches markAsPristine/markAsUntouched
+        resetTehsils(); // Reset tehsil dropdown
+        
+        // Reset form submission flag (matches this.formSubmittedW = false)
+        console.log('🔄 [ADD-WORKING-AREA] Form submission flag reset');
+
+        // Update local state immediately (optimistic update)
+        const newWorkingArea: WorkingArea = {
+          id: Date.now(),
+          district: selectedDistrict?.districtName || districtRefId.toString(),
+          tehsil: selectedTehsil?.tehsilName || tehsilRefId.toString(),
+          action: 'Delete',
+          districtRefId: districtRefId,
+          tehsilRefId: tehsilRefId,
+          appRefId: currentApplicationId
+        };
+
+        setWorkingAreas(prevAreas => [...prevAreas, newWorkingArea]);
+        
+        // Show success message
+        setSaveSuccess(WORKING_AREA_SUCCESS_MESSAGES.AREA_ADDED);
+        ToastService.success(WORKING_AREA_SUCCESS_MESSAGES.AREA_ADDED);
+        
+        console.log('✅ [ADD-WORKING-AREA] Working area added to local state');
+
+        // Refresh contractor data from server (matches Angular this.getContractorApplicationDetails())
+        console.log('🔄 [ADD-WORKING-AREA] Refreshing contractor data from server...');
+        await refreshContractorData();
+        
+        console.log('✅ [ADD-WORKING-AREA] Process completed successfully');
+
+      } else {
+        // Handle API success=false case
+        throw new Error(response.message || response.error || 'Failed to add working area');
+      }
+
+    } catch (error: any) {
+      // STEP 8: Handle error response (matches Angular error handling)
+      console.error('❌ [ADD-WORKING-AREA] API Error:', error);
+      
+      // Hide spinner on error (matches Angular this.spinner.hide())
       setIsAddingWorkingArea(false);
       
-      // Clear form (matches Angular form clearing)
-      setWorkingOnDistrict("");
-      setWorkingOnTehsil("");
-      setWorkingAreaFormErrors({});
-      resetTehsils();
-
-      // Add to local state (matches Angular data refresh)
-      const newWorkingArea: WorkingArea = {
-        id: Date.now(),
-        district: selectedDistrict?.districtName || districtRefId.toString(),
-        tehsil: selectedTehsil?.tehsilName || tehsilRefId.toString(),
-        action: 'Delete'
-      };
-
-      setWorkingAreas([...workingAreas, newWorkingArea]);
-      setSaveSuccess(WORKING_AREA_SUCCESS_MESSAGES.AREA_ADDED);
-      ToastService.success(WORKING_AREA_SUCCESS_MESSAGES.AREA_ADDED);
+      // Extract error message
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          WORKING_AREA_ERRORS.ADD_FAILED;
       
-      console.log('✅ [ADD-WORKING-AREA] Working area added successfully to local state');
-
-      // Optional: Refresh contractor application details (matches Angular this.getContractorApplicationDetails())
-      await refreshContractorData();
-
-    } else {
-      throw new Error(response.error || 'Failed to add working area');
+      console.error('❌ [ADD-WORKING-AREA] Error details:', {
+        originalError: error,
+        extractedMessage: errorMessage,
+        errorType: typeof error
+      });
+      
+      // Show error to user
+      setSaveError(errorMessage);
+      ToastService.error(errorMessage);
+      
+      // Don't clear form on error (Angular behavior)
+      console.log('⚠️ [ADD-WORKING-AREA] Form preserved due to error');
     }
-
-  } catch (error: any) {
-    // STEP 8: Handle error response (matches Angular error handling)
-    console.error('❌ [ADD-WORKING-AREA] API Error:', error);
-    
-    // Hide spinner on error (matches Angular this.spinner.hide())
-    setIsAddingWorkingArea(false);
-    
-    const errorMessage = error?.message || WORKING_AREA_ERRORS.ADD_FAILED;
-    setSaveError(errorMessage);
-    ToastService.error(errorMessage);
-  }
-}, [
-  // FIXED: Add all dependencies used in the callback
-  workingOnDistrict,
-  workingOnTehsil,
-  applicationId,
-  ensureApplicationExists,
-  workingAreas,
-  districts,
-  tehsils,
-  resetTehsils,
-  refreshContractorData
-]);
+  }, [
+    workingOnDistrict,
+    workingOnTehsil,
+    applicationId,
+    ensureApplicationExists,
+    workingAreas,
+    districts,
+    tehsils,
+    resetTehsils,
+    refreshContractorData,
+    setWorkingAreaFormErrors,
+    setSaveError,
+    setIsAddingWorkingArea,
+    setWorkingOnDistrict,
+    setWorkingOnTehsil,
+    setWorkingAreas,
+    setSaveSuccess
+  ]); // ← This closing bracket and dependency array was missing
 
   // Handle Working Area District Change
   const handleWorkingDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -640,7 +772,6 @@ const handleAddWorkingArea = useCallback(async () => {
     saveSuccess, setSaveSuccess,
     saveError, setSaveError,
     isAddingWorkingArea,
-  
 
     // Application management
     applicationId,
@@ -653,6 +784,10 @@ const handleAddWorkingArea = useCallback(async () => {
     tehsils,
     loading,
     locationErrors,
+    
+    // Project Site States (ADD MISSING)
+    projectSiteLoading,
+    projectSiteError,
     
     // Handler Functions
     handleWorkingDistrictChange,

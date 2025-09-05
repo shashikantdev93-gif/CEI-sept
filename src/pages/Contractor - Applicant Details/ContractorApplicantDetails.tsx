@@ -60,6 +60,8 @@ const ContractorApplicantDetails: React.FC = () => {
   tehsils,
   loading,
   locationErrors,
+  projectSiteLoading,
+  projectSiteError,
   
   // Handler Functions
   handleWorkingDistrictChange,
@@ -74,9 +76,20 @@ const ContractorApplicantDetails: React.FC = () => {
   handleDeleteWorkingArea,
   handleDeleteInstrument,
   handleDeletePartner,
-  handleFileUploaded
+  handleFileUploaded,
+  
 } = useContractorForm();
 
+  // ADD: Debug state changes
+  React.useEffect(() => {
+    console.log('🎯 [CONTRACTOR-COMPONENT] State Debug:');
+    console.log('🎯 [CONTRACTOR-COMPONENT] isInitialLoad:', isInitialLoad);
+    console.log('🎯 [CONTRACTOR-COMPONENT] projectSiteLoading:', projectSiteLoading);
+    console.log('🎯 [CONTRACTOR-COMPONENT] applicant_name:', applicant_name);
+    console.log('🎯 [CONTRACTOR-COMPONENT] address:', address);
+    console.log('🎯 [CONTRACTOR-COMPONENT] panCardNumber:', panCardNumber);
+    console.log('🎯 [CONTRACTOR-COMPONENT] loading.districts:', loading.districts);
+  }, [isInitialLoad, projectSiteLoading, applicant_name, address, panCardNumber, loading.districts]);
 
   // Clean up navigation flags
   React.useEffect(() => {
@@ -124,15 +137,32 @@ const ContractorApplicantDetails: React.FC = () => {
   const showPartnerSection = contractorType && contractorType !== "Individual";
 
   // Show initial loading screen while fetching user data
-  if (isInitialLoad && loading.districts) {
+  if (isInitialLoad || projectSiteLoading) {
     return (
       <div className="min-vh-100 bg-light d-flex justify-content-center align-items-center" style={{ paddingTop: '80px' }}>
         <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
+          <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
             <span className="visually-hidden">Loading...</span>
           </div>
-          <p className="mt-2">Loading applicant details...</p>
+          <h5 className="text-primary mb-2">Loading Applicant Details</h5>
+          <p className="text-muted">Fetching your profile information...</p>
+          <div className="d-flex justify-content-center align-items-center mt-3">
+            <div className="spinner-grow spinner-grow-sm text-primary me-2"></div>
+            <small className="text-muted">Please wait while we load your data</small>
+          </div>
         </div>
+      </div>
+    );
+  }
+
+  // Show warning if project site data failed but allow manual entry
+  if (projectSiteError && !applicant_name && !address && !panCardNumber) {
+    return (
+      <div className="alert alert-warning m-4" role="alert">
+        <h6 className="alert-heading">Unable to Load Profile Data</h6>
+        <p className="mb-0">{projectSiteError}</p>
+        <hr />
+        <p className="mb-0">You can still fill the form manually.</p>
       </div>
     );
   }
