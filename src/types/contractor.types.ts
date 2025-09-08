@@ -28,6 +28,38 @@ export interface WorkingAreaPayload {
   tehsilName: string;
 }
 
+export interface WorkingAreaResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+}
+
+export interface ApplicationActionPayload {
+  appActionId: number;
+  appActionType: number;
+  sender_UserRefId: number;
+  sender_ProfileRefId: number;
+  receiver_UserRefId: number;
+  receiver_ProfileRefId: number;
+  actionOnDate: string;
+  actionTakenDaysCount: number;
+  remarks: string;
+  senderRoleId: number;
+  receiverRoleId: number;
+  isDocumentUploaded: boolean;
+  appDocumentRefId: number;
+  applicationRefId: number;
+  ipAddress?: string;
+  latitude?: string;
+  longitude?: string;
+}
+
+export interface ApplicationActionResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+}
+
 
 export interface Instrument {
   id: number;
@@ -135,3 +167,34 @@ export interface PartnerPayload {
   createdOnDate: string;
   lastModifiedOnDate: string;
 }
+
+// Application State Management
+export interface ApplicationState {
+  appId?: number;
+  iterationCount?: number;
+  isLocked?: boolean;
+  isAllowEdit?: boolean;
+  applicationLifeCycleStatusType?: number;
+}
+
+export interface ApplicationDetailsPayload {
+  appId: number;
+  applicationType: number;
+  applicationPurposeType: number;
+  iterationCount: number;
+  createdOnDate: string;
+  lastModifiedOnDate: string;
+  isEnabled: boolean;
+  isDeleted: boolean;
+  isLocked: boolean;
+  isAllowEdit: boolean;
+  isFeeApplicable: boolean;
+  isOnline: boolean;
+  applicationLifeCycleStatusType: number;
+  applicationLifeCycleLastStatusOn: string;
+  isLegacyData: boolean;
+  projectSiteRefId: number;
+  publicAppRefNum: string;
+}
+
+export type ContractorFormMode = 'new' | 'renew' | 'renew_first';

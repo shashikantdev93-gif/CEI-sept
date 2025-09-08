@@ -3,13 +3,24 @@ import { useLocation } from './useLocation';
 import { userDetailsService } from '../services/api/userDetailsService';
 import type { WorkingArea, Instrument, Partner } from '../types/contractor.types';
 import { ProjectSiteDataMapper } from '../utils/projectSiteDataMapper';
-import { INSTRUMENT_LISTS, WORKING_AREA_ERRORS, WORKING_AREA_SUCCESS_MESSAGES } from '../constants/contractor'; // Add missing imports
+import { 
+  INSTRUMENT_LISTS, 
+  WORKING_AREA_ERRORS, 
+  WORKING_AREA_SUCCESS_MESSAGES,
+  getContractorTypeEnum,
+  getVoltageTypeEnum,
+  getRangeUnitEnum,
+  getContractorTypeId,
+  getVoltageTypeId,
+  getRangeUnitId
+} from '../constants/contractor';
 import { useContractorApplication } from './useContractorApplication';
-import { validateWorkingAreaDuplicate, createWorkingAreaPayload } from '../utils/contractorUtils'; // Add missing imports
-import { ToastService } from '../utils/navigation'; // Add missing import
+import { validateWorkingAreaDuplicate, createWorkingAreaPayload } from '../utils/contractorUtils';
+import { ToastService } from '../utils/navigation';
 import { useProjectSiteAPI } from './useProjectSiteAPI';
+import { getInstrumentTypeName, getContractorTypeName, getVoltageTypeName, getRangeUnitName } from '../utils/enumMappings';
 
-export const useContractorForm = () => {
+export const useContractorForm = (draftApplicationId?: number | null) => {
   // Basic Form State
   const [applicant_name, setApplicantName] = useState(""); 
   const [address, setAddress] = useState("");
@@ -63,14 +74,18 @@ export const useContractorForm = () => {
 
   const {
     applicationId,
+    applicationState,
+    formMode,
     isCreatingApplication,
     applicationError,
+    setFormMode,
     createApplication,
-    checkApplicationExists
+    checkApplicationExists,
+    persistApplicationState,
+    restoreApplicationState
   } = useContractorApplication();
 
   const {
-    projectSiteData,
     loading: projectSiteLoading,
     error: projectSiteError,
     loadProjectSiteDetails
@@ -104,13 +119,13 @@ export const useContractorForm = () => {
     }
   });
 
-  // Helper function to get current form data
+  // Helper function to get current form data with proper mappings for API submission (Angular-like)
   const getCurrentFormData = useCallback(() => ({
     applicant_name,
     address,
     panCardNumber,
-    contractorType,
-    currentWorkingVoltage,
+    contractorType: getContractorTypeId(contractorType), // Convert to number for API
+    currentWorkingVoltage: getVoltageTypeId(currentWorkingVoltage), // Convert to number for API
     signeeNameOnBehalfOfCompany,
     businessEntity,
     businessEntityAddress
@@ -197,77 +212,162 @@ export const useContractorForm = () => {
   }, [applicationId, checkApplicationExists, createApplication, getCurrentFormData]);
 
   const refreshContractorData = useCallback(async () => {
-    if (!applicationId) {
-      console.log('⚠️ [CONTRACTOR-FORM] No applicationId available for refresh');
-      return;
+    console.log('🔄 [CONTRACTOR-FORM] === REFRESH STARTED ===');
+    console.log('🔄 [CONTRACTOR-FORM] Current applicationId:', applicationId);
+    
+    // Use draftApplicationId if provided, otherwise fall back to existing applicationId
+    let currentAppId = draftApplicationId || applicationId;
+    
+    // STRATEGY 1: Try to restore from session storage if no applicationId
+    if (!currentAppId) {
+      console.log('🔄 [CONTRACTOR-FORM] No applicationId, trying to restore from storage...');
+      const restored = restoreApplicationState();
+      if (restored?.appId) {
+        currentAppId = restored.appId;
+        console.log('✅ [CONTRACTOR-FORM] Restored applicationId from storage:', currentAppId);
+      }
     }
     
+    // STRATEGY 2: Always attempt refresh (Angular behavior) - NO EARLY RETURN
+    console.log('🔄 [CONTRACTOR-FORM] Attempting data refresh with appId:', currentAppId || 'NONE');
+    
     try {
-      console.log('🔄 [CONTRACTOR-FORM] Refreshing contractor data from server...');
-      const response = await userDetailsService.getContractorApplicationDetailsById(applicationId);
+      let response;
       
-      if (response.success && response.data) {
-        console.log('📥 [CONTRACTOR-FORM] Fresh data received:', response.data);
-        
-        // Update working areas from server response
-        if (response.data.workingAreas) {
-          const freshWorkingAreas = response.data.workingAreas.map((area: any, index: number) => ({
-            id: area.tehsilLevelUserMappingId || Date.now() + index,
-            district: area.districtName,
-            tehsil: area.tehsilName,
-            action: 'Delete',
-            districtRefId: area.districtRefId,
-            tehsilRefId: area.tehsilRefId,
-            appRefId: area.appRefId
-          }));
-          
-          setWorkingAreas(freshWorkingAreas);
-          console.log('✅ [CONTRACTOR-FORM] Working areas updated from server');
-        }
-        
-        // Update instruments if available
-        if (response.data.instruments) {
-          const freshInstruments = response.data.instruments.map((inst: any, index: number) => ({
-            id: inst.contactInstrumentId || Date.now() + index,
-            instrumentType: inst.instrumentTypeName,
-            instrumentSerialNo: inst.instrumentSerialNo,
-            instrumentMake: inst.instrumentMakeBy,
-            instrumentRange: `${inst.instrumentStartRange}-${inst.instrumentEndRange}`,
-            district: inst.districtName,
-            tehsil: inst.tehsilName,
-            action: 'Delete'
-          }));
-          
-          setInstruments(freshInstruments);
-          console.log('✅ [CONTRACTOR-FORM] Instruments updated from server');
-        }
-        
-        // Update partners if available
-        if (response.data.partners) {
-          const freshPartners = response.data.partners.map((partner: any, index: number) => ({
-            id: partner.contactPartnershipId || Date.now() + index,
-            name: partner.contrPartnerName,
-            email: partner.contrPartnerEmail,
-            mobileNumber: partner.contrPartnerContactNo,
-            photo: partner.contrPartnerPhoto,
-            pan: partner.panNoPhoto,
-            panNo: partner.panNo,
-            action: 'Delete'
-          }));
-          
-          setPartners(freshPartners);
-          console.log('✅ [CONTRACTOR-FORM] Partners updated from server');
-        }
-        
-        console.log('✅ [CONTRACTOR-FORM] All data refreshed successfully');
+      if (currentAppId) {
+        console.log('� [CONTRACTOR-FORM] Calling getContractorApplicationDetailsById with appId:', currentAppId);
+        response = await userDetailsService.getContractorApplicationDetailsById(currentAppId);
       } else {
-        console.warn('⚠️ [CONTRACTOR-FORM] Server response was not successful:', response);
+        console.log('📡 [CONTRACTOR-FORM] No appId available, trying to find existing applications...');
+        // STRATEGY 3: Try to get project site data which might contain existing applications
+        response = await userDetailsService.getProjectSiteData();
       }
+      
+      if (response.success && response.data?.formModel?.[0]) {
+        const contractorData = response.data.formModel[0];
+        
+        console.log('� [CONTRACTOR-FORM] Contractor data received:', contractorData);
+        
+        // Map Working Areas (exact Angular logic)
+        const workingAreasData = contractorData.applicationTehsilLevelUserWorking || [];
+        const mappedWorkingAreas = workingAreasData.map((area: any) => ({
+          id: area.tehsilLevelUserMappingId,
+          district: area.districtName,
+          tehsil: area.tehsilName,
+          districtRefId: area.districtRefId,
+          tehsilRefId: area.tehsilRefId,
+          action: 'Delete'
+        }));
+        setWorkingAreas(mappedWorkingAreas);
+        console.log('✅ [CONTRACTOR-FORM] Working Areas mapped:', mappedWorkingAreas.length, 'items');
+        
+        // Map Instruments (exact Angular logic)
+        const instrumentsData = contractorData.applicationInstrumentalDetail || [];
+        const mappedInstruments = instrumentsData.map((inst: any) => ({
+          id: inst.contactInstrumentId,
+          instrumentType: getInstrumentTypeName(inst.applicationInstrumentsType),
+          instrumentSerialNo: inst.instrumentSerialNo,
+          instrumentMake: inst.instrumentMakeBy,
+          instrumentRange: `${inst.instrumentStartRange}-${inst.instrumentEndRange} ${getRangeUnitName(inst.applicationInstrumentRange)}`,
+          district: inst.districtName || '',
+          tehsil: inst.tehsilName || '',
+          districtRefId: inst.districtRefId,
+          tehsilRefId: inst.tehsilRefId,
+          action: 'Delete'
+        }));
+        setInstruments(mappedInstruments);
+        console.log('✅ [CONTRACTOR-FORM] Instruments mapped:', mappedInstruments.length, 'items');
+        
+        // Map Partners (exact Angular logic)
+        const partnersData = contractorData.contractorPartnership_GeneralDetails || [];
+        const mappedPartners = partnersData.map((partner: any) => ({
+          id: partner.contactPartnershipId,
+          name: partner.contrPartnerName,
+          email: partner.contrPartnerEmail,
+          mobileNumber: partner.contrPartnerContactNo,
+          panNo: partner.panNo,
+          photo: partner.contrPartnerPhoto || '',
+          pan: partner.panNoPhoto || '',
+          action: 'Delete'
+        }));
+        setPartners(mappedPartners);
+        console.log('✅ [CONTRACTOR-FORM] Partners mapped:', mappedPartners.length, 'items');
+        
+        // Populate form fields from contractor general details
+        if (contractorData.contractorLicence_GeneralDetails) {
+          const generalDetails = contractorData.contractorLicence_GeneralDetails;
+          
+          // Map contractor type from number to string
+          if (generalDetails.applicationContractorType !== undefined) {
+            const contractorTypeString = getContractorTypeName(generalDetails.applicationContractorType);
+            setContractorType(contractorTypeString);
+            console.log('✅ [CONTRACTOR-FORM] Mapped Contractor Type:', generalDetails.applicationContractorType, '->', contractorTypeString);
+          }
+          
+          // Map voltage type from number to string
+          if (generalDetails.applicationWorkingVoltageType !== undefined) {
+            const voltageTypeString = getVoltageTypeName(generalDetails.applicationWorkingVoltageType);
+            setCurrentWorkingVoltage(voltageTypeString);
+            console.log('✅ [CONTRACTOR-FORM] Mapped Working Voltage:', generalDetails.applicationWorkingVoltageType, '->', voltageTypeString);
+          }
+          
+          // Map other contractor details
+          if (generalDetails.nameOfSigneeOfCompany) {
+            setSigneeNameOnBehalfOfCompany(generalDetails.nameOfSigneeOfCompany);
+            console.log('✅ [CONTRACTOR-FORM] Mapped Signee Name:', generalDetails.nameOfSigneeOfCompany);
+          }
+          
+          if (generalDetails.businessEntity) {
+            setBusinessEntity(generalDetails.businessEntity);
+            console.log('✅ [CONTRACTOR-FORM] Mapped Business Entity:', generalDetails.businessEntity);
+          }
+          
+          if (generalDetails.businessEntityAddress) {
+            setBusinessEntityAddress(generalDetails.businessEntityAddress);
+            console.log('✅ [CONTRACTOR-FORM] Mapped Business Entity Address:', generalDetails.businessEntityAddress);
+          }
+        }
+        
+        console.log('✅ [CONTRACTOR-FORM] All contractor data loaded successfully');
+        console.log('📊 Summary - Working Areas:', mappedWorkingAreas.length, 'Instruments:', mappedInstruments.length, 'Partners:', mappedPartners.length);
+        
+      } else {
+        console.warn('⚠️ [CONTRACTOR-FORM] No contractor data found in response or invalid response structure');
+        console.warn('⚠️ [CONTRACTOR-FORM] Response:', response);
+      }
+      
     } catch (error) {
-      console.error('❌ [CONTRACTOR-FORM] Error refreshing contractor data:', error);
-      // Don't show error to user for refresh failures, just log it
+      console.error('❌ [CONTRACTOR-FORM] Error loading contractor details:', error);
+      setSaveError('Failed to load contractor details');
     }
-  }, [applicationId]);
+    
+    console.log('🔄 [CONTRACTOR-FORM] === REFRESH ENDED ===');
+  }, [draftApplicationId, applicationId, restoreApplicationState, setWorkingAreas, setInstruments, setPartners, setSaveError]);
+
+  // Auto-restore state and refresh data after initial load
+  useEffect(() => {
+    if (!isInitialLoad) {
+      console.log('🔄 [CONTRACTOR-FORM] === AUTO-RESTORATION TRIGGERED ===');
+      console.log('🔄 [CONTRACTOR-FORM] Initial load complete, attempting state restoration...');
+      
+      // STRATEGY: Always try to restore and refresh, even if no saved state
+      const restored = restoreApplicationState();
+      if (restored?.appId) {
+        console.log('✅ [CONTRACTOR-FORM] State restored with appId:', restored.appId);
+        console.log('🔄 [CONTRACTOR-FORM] Forcing immediate data refresh...');
+        // Force refresh after state restoration with small delay to ensure state is set
+        setTimeout(() => {
+          refreshContractorData();
+        }, 100);
+      } else {
+        console.log('ℹ️ [CONTRACTOR-FORM] No saved state found, but still attempting refresh...');
+        // Even without saved state, try to refresh in case there's data on the server
+        setTimeout(() => {
+          refreshContractorData();
+        }, 100);
+      }
+    }
+  }, [isInitialLoad, restoreApplicationState, refreshContractorData]);
 
   // Enhanced Add Working Area with validation and application check
   const handleAddWorkingArea = useCallback(async () => {
@@ -361,7 +461,7 @@ export const useContractorForm = () => {
       console.log('🌐 [ADD-WORKING-AREA] Making API call to backend...');
       setIsAddingWorkingArea(true); // Show spinner (matches Angular this.spinner.show())
       
-      const response = await userDetailsService.addWorkingArea(workingAreaPayload);
+      const response = await userDetailsService.createContractorWorkingArea(workingAreaPayload);
       
       console.log('📥 [ADD-WORKING-AREA] API Response received:', response);
 
@@ -498,32 +598,134 @@ export const useContractorForm = () => {
   };
 
 
-  // Handle Contractor Type Change
+  // Handle Contractor Type Change (matches Angular selectContractorType logic)
   const handleContractorTypeChange = (value: string) => {
+    console.log('📋 [CONTRACTOR_TYPE] ===== CONTRACTOR TYPE CHANGED =====');
+    console.log('📋 [CONTRACTOR_TYPE] Previous contractorType:', contractorType);
+    console.log('📋 [CONTRACTOR_TYPE] New contractorType:', value);
+    
     setContractorType(value);
+    
+    const isIndividual = value === "Individual";
+    console.log('📋 [CONTRACTOR_TYPE] Is Individual contractor:', isIndividual);
+    
+    console.log('📋 [CONTRACTOR_TYPE] Determining Partner/Shareholder form visibility...');
+    console.log('📋 [CONTRACTOR_TYPE] Contractor types that require Partner form: [Private Limited, Public Limited, Partnership]');
+    console.log('📋 [CONTRACTOR_TYPE] Current contractor type:', value);
+    console.log('📋 [CONTRACTOR_TYPE] Is contractor type in required list:', ['Private Limited', 'Public Limited', 'Partnership'].includes(value));
+    
+    // Show partner form for non-individual contractors (matches Angular logic: ['5', '4', '2'])
+    const showPartnerForm = ['Private Limited', 'Public Limited', 'Partnership'].includes(value);
+    
+    console.log('📋 [CONTRACTOR_TYPE] ===== FINAL RESULT =====');
+    console.log('📋 [CONTRACTOR_TYPE] showPartnerForm (Partner section visible):', showPartnerForm);
+    console.log('📋 [CONTRACTOR_TYPE] Individual contractor (no partners needed):', isIndividual);
+    
+    if (showPartnerForm) {
+      console.log('✅ [CONTRACTOR_TYPE] Partner/Shareholder Details section will be shown');
+      console.log('✅ [CONTRACTOR_TYPE] User can now add partners/shareholders');
+    } else {
+      console.log('❌ [CONTRACTOR_TYPE] Partner/Shareholder Details section will be hidden');
+      console.log('❌ [CONTRACTOR_TYPE] Individual contractor - no partners needed');
+    }
   };
 
-  // Handle Working Voltage Change
+  // Handle Working Voltage Change (matches Angular voltage mapping logic)
   const handleCurrentWorkingVoltageChange = (value: string) => {
+    console.log('⚡ [WORKING_VOLTAGE] ===== CURRENT WORKING VOLTAGE CHANGED =====');
+    console.log('⚡ [WORKING_VOLTAGE] Previous currentWorkingVoltage:', currentWorkingVoltage);
+    console.log('⚡ [WORKING_VOLTAGE] New currentWorkingVoltage:', value);
+    
     setCurrentWorkingVoltage(value);
+    
+    console.log('⚡ [WORKING_VOLTAGE] Determining instrument list based on voltage...');
+    console.log('⚡ [WORKING_VOLTAGE] Available voltage options:');
+    console.log('⚡ [WORKING_VOLTAGE] - Low/Medium Voltage: lowMediumVoltage instruments');
+    console.log('⚡ [WORKING_VOLTAGE] - High Voltage: highVoltage instruments');
+    console.log('⚡ [WORKING_VOLTAGE] - Extra High Voltage: extraHighVoltage instruments');
     
     let newInstrumentList: Array<{value: number, name: string}> = [];
     
+    // Match Angular logic: voltage type ID determines instrument list
     switch (value) {
       case "Low/Medium Voltage":
         newInstrumentList = INSTRUMENT_LISTS.lowMediumVoltage;
+        console.log('⚡ [WORKING_VOLTAGE] Selected: Low/Medium Voltage (ID: 1)');
+        console.log('⚡ [WORKING_VOLTAGE] Available instruments:', newInstrumentList);
         break;
       case "High Voltage":
         newInstrumentList = INSTRUMENT_LISTS.highVoltage;
+        console.log('⚡ [WORKING_VOLTAGE] Selected: High Voltage (ID: 2)');
+        console.log('⚡ [WORKING_VOLTAGE] Available instruments:', newInstrumentList);
         break;
       case "Extra High Voltage":
         newInstrumentList = INSTRUMENT_LISTS.extraHighVoltage;
+        console.log('⚡ [WORKING_VOLTAGE] Selected: Extra High Voltage (ID: 3)');
+        console.log('⚡ [WORKING_VOLTAGE] Available instruments:', newInstrumentList);
+        break;
+      default:
+        newInstrumentList = [];
+        console.log('⚡ [WORKING_VOLTAGE] No voltage selected or invalid selection');
+        console.log('⚡ [WORKING_VOLTAGE] Instrument list cleared');
         break;
     }
     
     setSelectedInstrumentList(newInstrumentList);
-    if (instrument) setInstrument("");
+    
+    // Clear instrument selection when voltage changes (matches Angular logic)
+    if (instrument && value !== currentWorkingVoltage) {
+      console.log('⚡ [WORKING_VOLTAGE] Clearing previous instrument selection due to voltage change');
+      setInstrument("");
+    }
+    
+    console.log('⚡ [WORKING_VOLTAGE] ===== FINAL RESULT =====');
+    console.log('⚡ [WORKING_VOLTAGE] New instrument list length:', newInstrumentList.length);
+    console.log('⚡ [WORKING_VOLTAGE] Instrument dropdown enabled:', newInstrumentList.length > 0);
+    console.log('⚡ [WORKING_VOLTAGE] Previous instrument selection cleared:', !!instrument && value !== currentWorkingVoltage);
   };
+
+  // Helper function to load and map contractor data from API response (matches Angular logic)
+  const loadContractorDataFromAPI = useCallback((contractorDetails: any) => {
+    console.log('📊 [CONTRACTOR-FORM] Loading contractor data from API response...');
+    console.log('📊 [CONTRACTOR-FORM] Raw contractor details:', contractorDetails);
+
+    if (contractorDetails) {
+      // Map contractor type from number to string (using reverse mapping)
+      if (contractorDetails.applicationContractorType !== undefined) {
+        const contractorTypeString = getContractorTypeEnum(contractorDetails.applicationContractorType);
+        setContractorType(contractorTypeString);
+        console.log('📊 [CONTRACTOR-FORM] ✅ Mapped Contractor Type:', contractorDetails.applicationContractorType, '->', contractorTypeString);
+      }
+      
+      // Map voltage type from number to string (using reverse mapping)
+      if (contractorDetails.applicationWorkingVoltageType !== undefined) {
+        const voltageTypeString = getVoltageTypeEnum(contractorDetails.applicationWorkingVoltageType);
+        setCurrentWorkingVoltage(voltageTypeString);
+        console.log('📊 [CONTRACTOR-FORM] ✅ Mapped Working Voltage:', contractorDetails.applicationWorkingVoltageType, '->', voltageTypeString);
+        
+        // Set appropriate instrument list based on voltage type (matches Angular logic)
+        handleCurrentWorkingVoltageChange(voltageTypeString);
+      }
+      
+      // Map other contractor details
+      if (contractorDetails.nameOfSigneeOfCompany) {
+        setSigneeNameOnBehalfOfCompany(contractorDetails.nameOfSigneeOfCompany);
+        console.log('📊 [CONTRACTOR-FORM] ✅ Mapped Signee Name:', contractorDetails.nameOfSigneeOfCompany);
+      }
+      
+      if (contractorDetails.businessEntity) {
+        setBusinessEntity(contractorDetails.businessEntity);
+        console.log('📊 [CONTRACTOR-FORM] ✅ Mapped Business Entity:', contractorDetails.businessEntity);
+      }
+      
+      if (contractorDetails.businessEntityAddress) {
+        setBusinessEntityAddress(contractorDetails.businessEntityAddress);
+        console.log('📊 [CONTRACTOR-FORM] ✅ Mapped Business Entity Address:', contractorDetails.businessEntityAddress);
+      }
+      
+      console.log('✅ [CONTRACTOR-FORM] All contractor general details mapped successfully');
+    }
+  }, [handleCurrentWorkingVoltageChange]);
 
   // Handle Add Instrument
   const handleAddInstrument = async () => {
@@ -560,6 +762,7 @@ export const useContractorForm = () => {
       }
 
       const selectedInstrumentValue = selectedInstrumentList.find(item => item.name === instrument)?.value;
+      const rangeUnitId = getRangeUnitId(instrumentRangeUnit); // Convert range unit to ID for API
       
       const instrumentPayload = {
         contactInstrumentId: 0,
@@ -569,7 +772,7 @@ export const useContractorForm = () => {
         instrumentMakeBy: instrumentMake,
         instrumentStartRange: instrumentRangeFrom,
         instrumentEndRange: instrumentRangeTo,
-        applicationInstrumentRange: 1,
+        applicationInstrumentRange: rangeUnitId, // Use mapped range unit ID
         isActive: true,
         isDeleted: false,
         createdOnDate: new Date().toISOString(),
@@ -775,8 +978,11 @@ export const useContractorForm = () => {
 
     // Application management
     applicationId,
+    applicationState,
+    formMode,
     isCreatingApplication,
     applicationError,
+    setFormMode,
     checkApplicationExists,
     
     // Location States
@@ -785,7 +991,7 @@ export const useContractorForm = () => {
     loading,
     locationErrors,
     
-    // Project Site States (ADD MISSING)
+    // Project Site States
     projectSiteLoading,
     projectSiteError,
     
@@ -810,6 +1016,20 @@ export const useContractorForm = () => {
     // Validation functions
     validateWorkingAreaForm,
     getCurrentFormData,
-    ensureApplicationExists
+    ensureApplicationExists,
+    refreshContractorData,
+    loadContractorDataFromAPI,
+    
+    // Application state management
+    persistApplicationState,
+    restoreApplicationState,
+    
+    // Mapping utility functions (from constants)
+    getContractorTypeEnum,
+    getVoltageTypeEnum,
+    getRangeUnitEnum,
+    getContractorTypeId,
+    getVoltageTypeId,
+    getRangeUnitId
   };
 };

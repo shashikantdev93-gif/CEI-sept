@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import DataTable from '../../components/shared-component/DataTable';
 import FileUpload from '../../components/FileUpload';
 import { useContractorForm } from '../../hooks/useContractorForm';
-import { CONTRACTOR_TYPES, VOLTAGE_TYPES } from '../../constants/contractor';
+import { 
+  CONTRACTOR_TYPES, 
+  VOLTAGE_TYPES, 
+  RANGE_UNITS
+} from '../../constants/contractor';
 
 const ContractorApplicantDetails: React.FC = () => {
   const navigate = useNavigate();
+  const [draftApplicationId, setDraftApplicationId] = useState<number | null>(null);
 
   const {
   // Form States
@@ -78,7 +83,34 @@ const ContractorApplicantDetails: React.FC = () => {
   handleDeletePartner,
   handleFileUploaded,
   
-} = useContractorForm();
+  // Refresh function for draft data
+  refreshContractorData,
+  
+} = useContractorForm(draftApplicationId);
+
+  // ADD: Draft mode detection
+  useEffect(() => {
+    const draftData = sessionStorage.getItem('draftApplicationData');
+    if (draftData) {
+      try {
+        const parsedData = JSON.parse(draftData);
+        if (parsedData.appId) {
+          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected, appId:', parsedData.appId);
+          setDraftApplicationId(parsedData.appId);
+        }
+      } catch (error) {
+        console.error('❌ [CONTRACTOR-DETAILS] Error parsing draft data:', error);
+      }
+    }
+  }, []);
+
+  // ADD: Trigger data refresh when draftApplicationId is set
+  useEffect(() => {
+    if (draftApplicationId && refreshContractorData) {
+      console.log('🔄 [CONTRACTOR-DETAILS] Triggering contractor data refresh for appId:', draftApplicationId);
+      refreshContractorData();
+    }
+  }, [draftApplicationId, refreshContractorData]);
 
   // ADD: Debug state changes
   React.useEffect(() => {
@@ -833,11 +865,9 @@ const ContractorApplicantDetails: React.FC = () => {
                       className="form-control-custom"
                     >
                       <option value="">--select--</option>
-                      <option value="V">Volts (V)</option>
-                      <option value="A">Amperes (A)</option>
-                      <option value="Ω">Ohms (Ω)</option>
-                      <option value="MΩ">Mega Ohm (MΩ)</option>
-                      <option value="KV">Kilo Volt (KV)</option>
+                      {RANGE_UNITS.map((unit) => (
+                        <option key={unit.id} value={unit.value}>{unit.label}</option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>

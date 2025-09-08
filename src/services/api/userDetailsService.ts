@@ -1,5 +1,6 @@
 import { axiosInterceptor } from '../../lib/interceptor';
 import type { ApiResponse } from '../../types/common';
+import type { ApplicationDetailsPayload, WorkingAreaPayload, WorkingAreaResponse, ApplicationActionPayload, ApplicationActionResponse } from '../../types/contractor.types';
 
 // Basic Interfaces
 interface GenerateOTPPayload {
@@ -91,17 +92,6 @@ export interface ContractorApplicationPayload {
   lastModifiedOnDate: string;
 }
 
-export interface WorkingAreaPayload {
-  tehsilLevelUserMappingId: number;
-  appRefId: number;
-  districtRefId: number;
-  tehsilRefId: number;
-  createdOnDate: string;
-  lastModifiedOnDate: string;
-  districtName: string;
-  tehsilName: string;
-}
-
 export interface PartnerPayload {
   contactPartnershipId: number;
   appRefId: number;
@@ -151,13 +141,6 @@ export interface ContractorApplicationResponse {
     createdOnDate: string;
     lastModifiedOnDate: string;
   };
-  error?: string;
-}
-
-export interface WorkingAreaResponse {
-  success: boolean;
-  message: string;
-  data?: any;
   error?: string;
 }
 
@@ -284,10 +267,77 @@ export const userDetailsService = {
   // Project Site Services
   async getProjectSiteData(): Promise<ApiResponse<ProjectSiteData>> {
     console.log('🔄 [USER-SERVICE] Fetching project site data');
-    return axiosInterceptor.get<ProjectSiteData>('/ProjectSites/getProjectSitesData');
+    return axiosInterceptor.get<ProjectSiteData>('/createApplicationDetails/getProjectSitesData');
   },
 
   // Contractor Application Services
+
+  async createApplicationDetails(payload: ApplicationDetailsPayload): Promise<ApiResponse<any>> {
+  console.log('🔄 [USER-SERVICE] Creating application details with payload:', payload);
+  console.log('🔄 [USER-SERVICE] API endpoint: /Application/addUpdate_ApplicationDetails');
+  console.log('🔄 [USER-SERVICE] HTTP method: POST');
+  
+  try {
+    const response = await axiosInterceptor.post<any>(
+      '/Application/addUpdate_ApplicationDetails', // ← This is the correct endpoint (not ContractorLicence)
+      payload
+    );
+    
+    console.log('✅ [USER-SERVICE] Application details created successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ [USER-SERVICE] Error creating application details:', error);
+    throw error;
+  }
+},
+
+  /**
+   * Creates or updates contractor working area
+   * @param payload - Working area payload
+   * @returns Promise with working area response
+   */
+  async createContractorWorkingArea(payload: WorkingAreaPayload): Promise<ApiResponse<WorkingAreaResponse>> {
+    console.log('🔄 [USER-SERVICE] Creating contractor working area with payload:', payload);
+    console.log('🔄 [USER-SERVICE] API endpoint: /ContractorLicence/addUpdateContract_WorkingArea');
+    console.log('🔄 [USER-SERVICE] HTTP method: POST');
+
+    try {
+      const response = await axiosInterceptor.post<WorkingAreaResponse>(
+        '/ContractorLicence/addUpdateContract_WorkingArea',
+        payload
+      );
+
+      console.log('✅ [USER-SERVICE] Working area creation response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error creating working area:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Creates or updates application action (required for proper application lifecycle)
+   * @param payload - Application action payload
+   * @returns Promise with application action response
+   */
+  async createApplicationAction(payload: ApplicationActionPayload): Promise<ApiResponse<ApplicationActionResponse>> {
+    console.log('🔄 [USER-SERVICE] Creating application action with payload:', payload);
+    console.log('🔄 [USER-SERVICE] API endpoint: /Application/addUpdate_ApplicationAction');
+    console.log('🔄 [USER-SERVICE] HTTP method: POST');
+
+    try {
+      const response = await axiosInterceptor.post<ApplicationActionResponse>(
+        '/Application/addUpdate_ApplicationAction',
+        payload
+      );
+
+      console.log('✅ [USER-SERVICE] Application action creation response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error creating application action:', error);
+      throw error;
+    }
+  },
 
   async createApplication(payload: CreateApplicationPayload): Promise<ApiResponse<{applicationId: number}>> {
     console.log('🔄 [USER-SERVICE] Creating new application');
