@@ -169,6 +169,41 @@ export interface PartnerPayload {
   lastModifiedOnDate: string;
 }
 
+// Response interfaces for API operations (Angular parity)
+export interface InstrumentResponse {
+  contactInstrumentId: number;
+  appRefId: number;
+  applicationInstrumentsType: number;
+  instrumentSerialNo: string;
+  instrumentMakeBy: string;
+  instrumentStartRange: string;
+  instrumentEndRange: string;
+  applicationInstrumentRange: number;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdOnDate: string;
+  lastModifiedOnDate: string;
+  districtRefId: number;
+  districtName: string;
+  tehsilRefId: number;
+  tehsilName: string;
+}
+
+export interface PartnerResponse {
+  contactPartnershipId: number;
+  appRefId: number;
+  contrPartnerName: string;
+  contrPartnerEmail: string;
+  contrPartnerContactNo: string;
+  contrPartnerPhoto: string;
+  panNoPhoto: string;
+  panNo: string;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdOnDate: string;
+  lastModifiedOnDate: string;
+}
+
 // Application State Management
 export interface ApplicationState {
   appId?: number;

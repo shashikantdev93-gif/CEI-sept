@@ -1,6 +1,16 @@
 import { axiosInterceptor } from '../../lib/interceptor';
 import type { ApiResponse } from '../../types/common';
-import type { ApplicationDetailsPayload, WorkingAreaPayload, WorkingAreaResponse, ApplicationActionPayload, ApplicationActionResponse } from '../../types/contractor.types';
+import type { 
+  ApplicationDetailsPayload, 
+  WorkingAreaPayload, 
+  WorkingAreaResponse, 
+  ApplicationActionPayload, 
+  ApplicationActionResponse,
+  InstrumentPayload,
+  InstrumentResponse,
+  PartnerPayload,
+  PartnerResponse
+} from '../../types/contractor.types';
 
 // Basic Interfaces
 interface GenerateOTPPayload {
@@ -92,40 +102,6 @@ export interface ContractorApplicationPayload {
   lastModifiedOnDate: string;
 }
 
-export interface PartnerPayload {
-  contactPartnershipId: number;
-  appRefId: number;
-  contrPartnerName: string;
-  contrPartnerEmail: string;
-  contrPartnerContactNo: string;
-  contrPartnerPhoto: string;
-  panNoPhoto: string;
-  panNo: string;
-  isActive: boolean;
-  isDeleted: boolean;
-  createdOnDate: string;
-  lastModifiedOnDate: string;
-}
-
-export interface InstrumentPayload {
-  contactInstrumentId: number;
-  appRefId: number;
-  applicationInstrumentsType: number;
-  instrumentSerialNo: string;
-  instrumentMakeBy: string;
-  instrumentStartRange: string;
-  instrumentEndRange: string;
-  applicationInstrumentRange: number;
-  isActive: boolean;
-  isDeleted: boolean;
-  createdOnDate: string;
-  lastModifiedOnDate: string;
-  districtRefId: number;
-  districtName: string;
-  tehsilRefId: number;
-  tehsilName: string;
-}
-
 // Response Interfaces
 export interface ContractorApplicationResponse {
   success: boolean;
@@ -141,20 +117,6 @@ export interface ContractorApplicationResponse {
     createdOnDate: string;
     lastModifiedOnDate: string;
   };
-  error?: string;
-}
-
-export interface PartnerResponse {
-  success: boolean;
-  message: string;
-  data?: any;
-  error?: string;
-}
-
-export interface InstrumentResponse {
-  success: boolean;
-  message: string;
-  data?: any;
   error?: string;
 }
 
@@ -448,6 +410,124 @@ export const userDetailsService = {
       return response;
     } catch (error) {
       console.error('❌ [USER-SERVICE] Error deleting working area:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes contractor partner (Angular parity)
+   * @param partnerId - Partner ID to delete
+   * @returns Promise with delete response
+   */
+  async deletePartner(partnerId: number): Promise<ApiResponse<any>> {
+    console.log('🗑️ [USER-SERVICE] Deleting partner with ID:', partnerId);
+    console.log('🗑️ [USER-SERVICE] API endpoint: /ContractorLicence/deleteContractPartner_ById');
+    console.log('🗑️ [USER-SERVICE] HTTP method: GET (Angular parity)');
+    console.log('🗑️ [USER-SERVICE] Parameter format: Query string (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/ContractorLicence/deleteContractPartner_ById?partnerId=${partnerId}`
+      );
+
+      console.log('✅ [USER-SERVICE] Partner deletion response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error deleting partner:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes contractor instrument (Angular parity)
+   * @param instrumentId - Instrument ID to delete
+   * @returns Promise with delete response
+   */
+  async deleteInstrument(instrumentId: number): Promise<ApiResponse<any>> {
+    console.log('🗑️ [USER-SERVICE] Deleting instrument with ID:', instrumentId);
+    console.log('🗑️ [USER-SERVICE] API endpoint: /ContractorLicence/deleteContractInstrument_ById');
+    console.log('🗑️ [USER-SERVICE] HTTP method: GET (Angular parity)');
+    console.log('🗑️ [USER-SERVICE] Parameter format: Query string (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/ContractorLicence/deleteContractInstrument_ById?instrumentId=${instrumentId}`
+      );
+
+      console.log('✅ [USER-SERVICE] Instrument deletion response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error deleting instrument:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Checks if partner email already exists (Angular parity)
+   * @param email - Email to check for uniqueness
+   * @returns Promise with email check response
+   */
+  async checkPartnerEmailExists(email: string): Promise<ApiResponse<any>> {
+    console.log('📧 [USER-SERVICE] Checking partner email exists:', email);
+    console.log('📧 [USER-SERVICE] API endpoint: /ContractorLicence/checkPartnerEmailExists');
+    console.log('📧 [USER-SERVICE] HTTP method: GET (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/ContractorLicence/checkPartnerEmailExists?email=${encodeURIComponent(email)}`
+      );
+
+      console.log('✅ [USER-SERVICE] Partner email check response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error checking partner email:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Checks if partner mobile number already exists (Angular parity)
+   * @param mobile - Mobile number to check for uniqueness
+   * @returns Promise with mobile check response
+   */
+  async checkPartnerMobileExists(mobile: string): Promise<ApiResponse<any>> {
+    console.log('📱 [USER-SERVICE] Checking partner mobile exists:', mobile);
+    console.log('📱 [USER-SERVICE] API endpoint: /ContractorLicence/checkPartnerMobileExists');
+    console.log('📱 [USER-SERVICE] HTTP method: GET (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/ContractorLicence/checkPartnerMobileExists?mobile=${mobile}`
+      );
+
+      console.log('✅ [USER-SERVICE] Partner mobile check response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error checking partner mobile:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Checks if PAN number already exists (Angular parity)
+   * @param panNumber - PAN number to check for uniqueness
+   * @returns Promise with PAN check response
+   */
+  async checkPANExists(panNumber: string): Promise<ApiResponse<any>> {
+    console.log('🔍 [USER-SERVICE] Checking PAN exists:', panNumber);
+    console.log('🔍 [USER-SERVICE] API endpoint: /ProjectSites/getProjectSitesPanDetails');
+    console.log('🔍 [USER-SERVICE] HTTP method: GET (Angular parity)');
+    console.log('🔍 [USER-SERVICE] Parameter: panno (Angular naming)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/ProjectSites/getProjectSitesPanDetails?panno=${panNumber.toUpperCase()}`
+      );
+
+      console.log('✅ [USER-SERVICE] PAN check response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error checking PAN:', error);
       throw error;
     }
   },

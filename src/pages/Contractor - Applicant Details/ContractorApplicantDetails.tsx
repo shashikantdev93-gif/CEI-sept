@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import DataTable from '../../components/shared-component/DataTable';
@@ -205,7 +205,55 @@ const ContractorApplicantDetails: React.FC = () => {
 
   // Check if contractor type requires business entity fields
   const showBusinessEntityFields = contractorType && contractorType !== "Individual";
-  const showPartnerSection = contractorType && contractorType !== "Individual";
+  
+  // ✅ ANGULAR PARITY: Partner section visibility logic
+  // ✅ FIX #1: CRITICAL - Contractor Type Logic Exact Angular Parity
+  // Angular: this.showShareHolderForm = ['5', '4', '2'].includes(this.contractorType);
+  // Where: 5=Private Limited, 4=Public Limited, 2=Partnership
+  const showPartnerSection = useMemo(() => {
+    if (!contractorType) return false;
+    
+    console.log('👥 [PARTNER-SECTION] ===== CONTRACTOR TYPE VISIBILITY CHECK =====');
+    console.log('👥 [PARTNER-SECTION] Current contractorType:', contractorType);
+    
+    // ✅ CRITICAL FIX: Map React string values to Angular numeric IDs dynamically
+    // This must match Angular's exact logic: ['5', '4', '2'].includes(this.contractorType)
+    const contractorTypeMapping = {
+      "Proprietorship": "1",      // No partners required
+      "Partnership": "2",         // ✅ Partners required (Angular: '2')
+      "Individual": "3",          // No partners required  
+      "Public Limited": "4",      // ✅ Partners required (Angular: '4')
+      "Private Limited": "5"      // ✅ Partners required (Angular: '5')
+    };
+    
+    const contractorTypeId = contractorTypeMapping[contractorType as keyof typeof contractorTypeMapping];
+    console.log('👥 [PARTNER-SECTION] Mapped contractor type ID:', contractorTypeId);
+    
+    // Angular exact logic: ['5', '4', '2'].includes(this.contractorType)
+    const partnerRequiredTypeIds = ["5", "4", "2"]; // Private Limited, Public Limited, Partnership
+    const shouldShow = partnerRequiredTypeIds.includes(contractorTypeId);
+    
+    console.log('👥 [PARTNER-SECTION] Partner required type IDs:', partnerRequiredTypeIds);
+    console.log('👥 [PARTNER-SECTION] Is contractor type in required list:', shouldShow);
+    
+    // Additional Angular checks: lock page and lifecycle status
+    const isNotLocked = !hideContractorElementsForLockPage;
+    console.log('👥 [PARTNER-SECTION] Is not locked page:', isNotLocked);
+    
+    const finalResult = shouldShow && isNotLocked;
+    console.log('👥 [PARTNER-SECTION] ===== FINAL RESULT =====');
+    console.log('👥 [PARTNER-SECTION] showPartnerSection:', finalResult);
+    
+    if (finalResult) {
+      console.log('✅ [PARTNER-SECTION] Partner/Shareholder Details section will be shown');
+      console.log('✅ [PARTNER-SECTION] User can now add partners/shareholders');
+    } else {
+      console.log('❌ [PARTNER-SECTION] Partner/Shareholder Details section will be hidden');
+      console.log('❌ [PARTNER-SECTION] Reason:', !shouldShow ? 'Contractor type does not require partners' : 'Page is locked');
+    }
+    
+    return finalResult;
+  }, [contractorType, hideContractorElementsForLockPage]);
 
   // Show initial loading screen while fetching user data
   if (isInitialLoad || projectSiteLoading) {
