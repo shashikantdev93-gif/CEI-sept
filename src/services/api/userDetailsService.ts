@@ -425,6 +425,33 @@ export const userDetailsService = {
     return axiosInterceptor.post<PartnerResponse>('/ContractorLicence/addUpdateContract_PartnerDetails', payload);
   },
 
+  /**
+   * Deletes contractor working area (Angular parity)
+   * @param workingTehsilId - Working area ID to delete (Angular parameter name)
+   * @returns Promise with delete response
+   */
+  async deleteContractorWorkingArea(workingTehsilId: number): Promise<ApiResponse<any>> {
+    console.log('🗑️ [USER-SERVICE] Deleting contractor working area with ID:', workingTehsilId);
+    console.log('🗑️ [USER-SERVICE] API endpoint: /ContractorLicence/deleteContractWorkingTehsil_ById');
+    console.log('🗑️ [USER-SERVICE] HTTP method: GET (Angular parity - FIXED)');
+    console.log('🗑️ [USER-SERVICE] Parameter format: Query string (Angular parity)');
+
+    try {
+      // ✅ FIX: Use Angular's exact method (GET) and query parameter format
+      // ✅ CRITICAL: Angular uses GET request, not POST - this was causing 405 Method Not Allowed
+      const response = await axiosInterceptor.get<any>(
+        `/ContractorLicence/deleteContractWorkingTehsil_ById?workingTehsilId=${workingTehsilId}`
+        // GET request with query parameter - exactly like Angular
+      );
+
+      console.log('✅ [USER-SERVICE] Working area deletion response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error deleting working area:', error);
+      throw error;
+    }
+  },
+
   
   
 };

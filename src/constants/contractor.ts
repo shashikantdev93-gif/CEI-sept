@@ -95,12 +95,15 @@ export const WORKING_AREA_ERRORS = {
   DISTRICT_REQUIRED: 'District is required',
   TEHSIL_REQUIRED: 'Tehsil is required',
   APPLICATION_CREATE_FAILED: 'Failed to create application. Please try again.',
-  ADD_FAILED: 'Failed to add working area. Please try again.'
+  ADD_FAILED: 'Failed to add working area. Please try again.',
+  IN_USE: 'Oops! This working area is already being used in instruments',
+  DELETE_FAILED: 'Failed to delete working area. Please try again.'
 } as const;
 
 export const WORKING_AREA_SUCCESS_MESSAGES = {
   AREA_ADDED: 'Working area added successfully!',
-  APPLICATION_CREATED: 'Application created successfully'
+  APPLICATION_CREATED: 'Application created successfully',
+  DELETE_SUCCESS: 'Working area has been deleted successfully!'
 } as const;
 
 // Utility functions for mapping (similar to Angular usage)

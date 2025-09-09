@@ -25,10 +25,10 @@ const ContractorApplicantDetails: React.FC = () => {
   businessEntity, setBusinessEntity,
   businessEntityAddress, setBusinessEntityAddress,
   
-  // Working Area States
+  // Working Area States (Angular naming: workingAreaList)
   workingOnDistrict,
   workingOnTehsil,
-  workingAreas,
+  workingAreaList,
   workingAreaFormErrors,      
   
   // Instrument States
@@ -68,14 +68,14 @@ const ContractorApplicantDetails: React.FC = () => {
   projectSiteLoading,
   projectSiteError,
   
-  // Handler Functions
+  // Handler Functions (Angular naming: addWorkingArea)
   handleWorkingDistrictChange,
   handleInstrumentDistrictChange,
   handleInstrumentTehsilChange,  
   handleContractorTypeChange,
   handleCurrentWorkingVoltageChange,
   handleWorkingTehsilChange,
-  handleAddWorkingArea,
+  addWorkingArea,
   handleAddInstrument,
   handleAddPartner,
   handleDeleteWorkingArea,
@@ -83,19 +83,50 @@ const ContractorApplicantDetails: React.FC = () => {
   handleDeletePartner,
   handleFileUploaded,
   
-  // Refresh function for draft data
-  refreshContractorData,
+  // Refresh function for draft data (Angular naming: getContractorApplicationDetails)
+  getContractorApplicationDetails,
+
+  // Application management (Angular naming: apprefId)
+  apprefId,
+
+  // Field State Management (Angular parity)
+  applicationData,
+  hideContractorElementsForLockPage,
+  isFormDisabled,
+  areFieldsDisabled,
+  fieldStateDebug
   
 } = useContractorForm(draftApplicationId);
 
-  // ADD: Draft mode detection
+  // ADD: URL Parameter Extraction (Angular: this.route.queryParams.subscribe)
   useEffect(() => {
+    console.log('🔗 [CONTRACTOR-DETAILS] Checking URL parameters for appRefId...');
+    
+    // Extract appRefId from URL parameters (like Angular)
+    const urlParams = new URLSearchParams(window.location.search);
+    const appRefIdFromUrl = urlParams.get('appRefId') || urlParams.get('applicationId') || urlParams.get('appId');
+    
+    console.log('🔗 [CONTRACTOR-DETAILS] URL params:', {
+      appRefId: urlParams.get('appRefId'),
+      applicationId: urlParams.get('applicationId'),
+      appId: urlParams.get('appId'),
+      finalValue: appRefIdFromUrl
+    });
+    
+    if (appRefIdFromUrl) {
+      const numericAppRefId = parseInt(appRefIdFromUrl);
+      console.log('✅ [CONTRACTOR-DETAILS] AppRefId from URL:', numericAppRefId);
+      setDraftApplicationId(numericAppRefId);
+      return;
+    }
+    
+    // Fallback: Check session storage for draft data
     const draftData = sessionStorage.getItem('draftApplicationData');
     if (draftData) {
       try {
         const parsedData = JSON.parse(draftData);
         if (parsedData.appId) {
-          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected, appId:', parsedData.appId);
+          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected from session, appId:', parsedData.appId);
           setDraftApplicationId(parsedData.appId);
         }
       } catch (error) {
@@ -104,13 +135,21 @@ const ContractorApplicantDetails: React.FC = () => {
     }
   }, []);
 
-  // ADD: Trigger data refresh when draftApplicationId is set
+  // ADD: Trigger data refresh when draftApplicationId is set (Angular naming: getContractorApplicationDetails)
   useEffect(() => {
-    if (draftApplicationId && refreshContractorData) {
+    if (draftApplicationId && getContractorApplicationDetails) {
       console.log('🔄 [CONTRACTOR-DETAILS] Triggering contractor data refresh for appId:', draftApplicationId);
-      refreshContractorData();
+      getContractorApplicationDetails();
     }
-  }, [draftApplicationId, refreshContractorData]);
+  }, [draftApplicationId, getContractorApplicationDetails]);
+
+  // ADD: Field State Debug Logging (Angular parity verification)
+  useEffect(() => {
+    if (fieldStateDebug.hasApplicationData) {
+      console.log('🔒 [CONTRACTOR-DETAILS] Field State Debug:', fieldStateDebug);
+      console.log('🔒 [CONTRACTOR-DETAILS] Fields will be disabled:', areFieldsDisabled);
+    }
+  }, [fieldStateDebug, areFieldsDisabled]);
 
   // ADD: Debug state changes
   React.useEffect(() => {
@@ -344,6 +383,7 @@ const ContractorApplicantDetails: React.FC = () => {
                       value={contractorType}
                       onChange={(e) => handleContractorTypeChange(e.target.value)}
                       className="form-control-custom"
+                      disabled={areFieldsDisabled}
                     >
                       <option value="">-select-</option>
                       {CONTRACTOR_TYPES.map((type) => (
@@ -361,6 +401,7 @@ const ContractorApplicantDetails: React.FC = () => {
                       value={currentWorkingVoltage}
                       onChange={(e) => handleCurrentWorkingVoltageChange(e.target.value)}
                       className="form-control-custom"
+                      disabled={areFieldsDisabled}
                     >
                       <option value="">-select-</option>
                       {VOLTAGE_TYPES.map((voltage) => (
@@ -486,7 +527,7 @@ const ContractorApplicantDetails: React.FC = () => {
                 </Col>
                 <Col md={4} className="d-flex align-items-end">
                   <button 
-                    onClick={handleAddWorkingArea}
+                    onClick={addWorkingArea}
                     disabled={
                       loading.districts || 
                       loading.tehsils || 
@@ -522,15 +563,16 @@ const ContractorApplicantDetails: React.FC = () => {
                 <DataTable
                   title="Working Areas"
                   columns={['S.No.', 'District', 'Tehsil', 'Action']}
-                  rows={workingAreas.map((area, index) => ({
+                  rows={workingAreaList.map((area, index) => ({
                     'S.No.': index + 1,
                     District: area.district,
                     Tehsil: area.tehsil,
                     Action: 'Delete',
-                    id: area.id
+                    id: area.id,
+                    workingAreaData: area // Include full working area object for delete handler
                   }))}
                   isMobileView={false}
-                  onActionClick={(row) => handleDeleteWorkingArea(row.id)}
+                  onActionClick={(row) => handleDeleteWorkingArea(row.workingAreaData)}
                   actionButton={{
                     label: 'Delete',
                     icon: 'bi-trash3',

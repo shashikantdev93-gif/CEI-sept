@@ -1,13 +1,14 @@
 export interface WorkingArea {
-  id: number;
-  district: string;
-  tehsil: string;
+  id: string | number;                    // Keep for backward compatibility
+  tehsilLevelUserMappingId: number;       // ✅ Required for deletion API
+  district: string;                       // React naming
+  tehsil: string;                         // React naming
+  districtName?: string;                  // Angular naming compatibility
+  tehsilName?: string;                    // Angular naming compatibility
+  districtRefId: number;                  // Required for validation
+  tehsilRefId: number;                    // Required for validation
+  appRefId?: number;                      // Required for API calls
   action: string;
-  // Optional: Add these for future API response mapping
-  districtRefId?: number;
-  tehsilRefId?: number;
-  appRefId?: number;
-  tehsilLevelUserMappingId?: number;
 }
 
 export interface WorkingAreaDuplicateCheck {

@@ -1,9 +1,39 @@
 ﻿import React, { useEffect } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { useApplicationAvailability } from '../../hooks/useApplicationAvailability';
+import { ToastService } from '../../utils/navigation';
 
 const ApplicationForm: React.FC = () => {
   const navigate = useNavigate();
+
+  // NEW: Application availability check (Angular parity)
+  const {
+    contractorAppsExist,
+    supervisorAppsExist,
+    wiremanAppsExist,
+    loading: availabilityLoading,
+    error: availabilityError,
+    debugInfo
+  } = useApplicationAvailability({
+    autoLoad: true,
+    onError: (error) => {
+      console.error('❌ [APPLICATION-FORM] Application availability error:', error);
+      ToastService.error('Failed to check existing applications');
+    }
+  });
+
+  // Debug logging for application availability
+  useEffect(() => {
+    console.log('🔍 [APPLICATION-FORM] Application availability state:', {
+      contractorAppsExist,
+      supervisorAppsExist,
+      wiremanAppsExist,
+      loading: availabilityLoading,
+      error: availabilityError,
+      debugInfo
+    });
+  }, [contractorAppsExist, supervisorAppsExist, wiremanAppsExist, availabilityLoading, availabilityError, debugInfo]);
 
   useEffect(() => {
 
@@ -23,46 +53,105 @@ const ApplicationForm: React.FC = () => {
   const handleButtonClick = (formType: string, action: string) => {
     console.log(`Button clicked for ${formType} - ${action}`);
     
-    if (formType === 'Contractor Registration' && action === 'New') {
-      sessionStorage.setItem('allowContractorDetailsNavigation', 'true');
-      console.log('ApplicationForm - Set allowContractorDetailsNavigation flag');
-
-      navigate('/dashboard/ProjectDetails/applicationForm/contractor-applicant-details');
-    } else if (formType === 'Supervisor Registration' && action === 'New') {
-      sessionStorage.setItem('allowSupervisorRegistrationNavigation', 'true');
-      console.log('ApplicationForm - Set allowSupervisorRegistrationNavigation flag');
-      navigate('/dashboard/ProjectDetails/applicationForm/supervisor-registration');
-    }
-    else if (formType === 'Contractor Renewal' && action === 'Renew') {
+    // EXACT Angular logic from goToApplicationForm() function
+    if (action === 'New') {
+      if (formType === 'Contractor Registration') {
+        // Angular: if (this.contractorApplicationDetails.length > 0 && applicationType == 6)
+        if (contractorAppsExist) {
+          ToastService.error('Contractor registration application has already been saved as draft.');
+          console.log('🚫 [APPLICATION-FORM] Contractor application already exists, preventing navigation');
+          return;
+        }
+        
+        // Navigate to contractor form (Angular parity)
+        sessionStorage.setItem('allowContractorDetailsNavigation', 'true');
+        console.log('✅ [APPLICATION-FORM] No existing contractor app, allowing navigation');
+        navigate('/dashboard/ProjectDetails/applicationForm/contractor-applicant-details');
+        
+      } else if (formType === 'Supervisor Registration') {
+        // Angular: if (this.supervisorApplicationDetails.length > 0 && applicationType == 7)
+        if (supervisorAppsExist) {
+          ToastService.error('Supervisor registration application has already been saved as draft.');
+          console.log('🚫 [APPLICATION-FORM] Supervisor application already exists, preventing navigation');
+          return;
+        }
+        
+        sessionStorage.setItem('allowSupervisorRegistrationNavigation', 'true');
+        console.log('✅ [APPLICATION-FORM] No existing supervisor app, allowing navigation');
+        navigate('/dashboard/ProjectDetails/applicationForm/supervisor-registration');
+        
+      } else if (formType === 'Wireman Registration') {
+        // Angular: if (this.wiremanApplicationDetails.length > 0 && applicationType == 8)
+        if (wiremanAppsExist) {
+          ToastService.error('Wireman registration application has already been saved as draft.');
+          console.log('🚫 [APPLICATION-FORM] Wireman application already exists, preventing navigation');
+          return;
+        }
+        
+        // Note: Using wireman route for now (update route as needed)
+        sessionStorage.setItem('allowWiremanRegistrationNavigation', 'true');
+        console.log('✅ [APPLICATION-FORM] No existing wireman app, allowing navigation');
+        navigate('/dashboard/ProjectDetails/applicationForm/wireman-information-new');
+      }
+    } else if (formType === 'Contractor Renewal' && action === 'Renew') {
       sessionStorage.setItem('allowContractorRenewalNavigation', 'true');
       console.log('ApplicationForm - Set allowContractorRenewalNavigation flag');
       navigate('/dashboard/ProjectDetails/applicationForm/wireman-information-new');
     }
-
   };
 
   const formData = [
     {
       formType: 'Contractor Registration',
       action: 'New',
-      buttonVariant: 'primary'
+      buttonVariant: 'primary',
+      applicationType: 6
     },
     {
       formType: 'Contractor Renewal',
       action: 'Renew',
-      buttonVariant: 'primary'
+      buttonVariant: 'primary',
+      applicationType: 6
     },
     {
       formType: 'Supervisor Registration',
       action: 'New',
-      buttonVariant: 'primary'
+      buttonVariant: 'primary',
+      applicationType: 7
     },
     {
       formType: 'Supervisor Renewal',
       action: 'Renew',
-      buttonVariant: 'primary'
+      buttonVariant: 'primary',
+      applicationType: 7
+    },
+    {
+      formType: 'Wireman Registration',
+      action: 'New',
+      buttonVariant: 'primary',
+      applicationType: 8
     }
   ];
+
+  // Helper function to determine if button should be disabled (Angular parity)
+  const isButtonDisabled = (formType: string, action: string): boolean => {
+    if (availabilityLoading) return true; // Disable while loading
+    
+    if (action === 'New') {
+      switch (formType) {
+        case 'Contractor Registration':
+          return contractorAppsExist;
+        case 'Supervisor Registration':
+          return supervisorAppsExist;
+        case 'Wireman Registration':
+          return wiremanAppsExist;
+        default:
+          return false;
+      }
+    }
+    
+    return false; // Renewal actions are not disabled by existing applications
+  };
 
   return (
     <div className="min-vh-100 bg-light py-4" style={{ marginTop: '60px' }}>
@@ -189,19 +278,26 @@ const ApplicationForm: React.FC = () => {
                             <Button
                               variant="primary"
                               className="fw-medium"
+                              disabled={isButtonDisabled(item.formType, item.action)}
                               onClick={() => handleButtonClick(item.formType, item.action)}
                               style={{
                                 fontSize: '13px',
                                 fontWeight: '500',
                                 borderRadius: '4px',
                                 padding: '8px 20px',
-                                backgroundColor: '#007BFF',
-                                borderColor: '#007BFF',
+                                backgroundColor: isButtonDisabled(item.formType, item.action) ? '#6c757d' : '#007BFF',
+                                borderColor: isButtonDisabled(item.formType, item.action) ? '#6c757d' : '#007BFF',
                                 minWidth: '100px',
-                                boxShadow: 'none'
+                                boxShadow: 'none',
+                                cursor: isButtonDisabled(item.formType, item.action) ? 'not-allowed' : 'pointer',
+                                opacity: isButtonDisabled(item.formType, item.action) ? 0.6 : 1
                               }}
+                              title={isButtonDisabled(item.formType, item.action) ? 
+                                'Application already exists for this project site' : 
+                                `Create new ${item.formType.toLowerCase()}`
+                              }
                             >
-                              {item.action}
+                              {availabilityLoading ? 'Loading...' : item.action}
                             </Button>
                           </td>
                         </tr>

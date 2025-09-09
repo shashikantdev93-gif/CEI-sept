@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from './useLocation';
 import { userDetailsService } from '../services/api/userDetailsService';
 import type { WorkingArea, Instrument, Partner } from '../types/contractor.types';
@@ -31,10 +31,10 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   const [businessEntity, setBusinessEntity] = useState("");
   const [businessEntityAddress, setBusinessEntityAddress] = useState("");
 
-  // Working Area State
+  // Working Area State (Angular naming: this.workingAreaList)
   const [workingOnDistrict, setWorkingOnDistrict] = useState<number | "">("");
   const [workingOnTehsil, setWorkingOnTehsil] = useState<number | "">("");
-  const [workingAreas, setWorkingAreas] = useState<WorkingArea[]>([]);
+  const [workingAreaList, setWorkingAreaList] = useState<WorkingArea[]>([]);
 
   // Instrument State
   const [instrument, setInstrument] = useState("");
@@ -61,16 +61,69 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   const [partnerPhotoPreviewUrl, setPartnerPhotoPreviewUrl] = useState("");
   const [uploadPanPreviewUrl, setUploadPanPreviewUrl] = useState("");
 
-  // Application State
+  // Application State (Angular naming: this.apprefId)
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isAddingWorkingArea, setIsAddingWorkingArea] = useState(false);
+  
+  // Draft Application State (matches Angular application object)
+  const [applicationData, setApplicationData] = useState<any>(null);
+  const [hideContractorElementsForLockPage, setHideContractorElementsForLockPage] = useState(false);
   const { districts, tehsils, loading, errors: locationErrors, loadDistricts, loadTehsils, resetTehsils } = useLocation();
   const [workingAreaFormErrors, setWorkingAreaFormErrors] = useState<{
     district?: string;
     tehsil?: string;
   }>({});
+
+  // Field State Management (COMPLETE Angular parity)
+  // Based on exact Angular logic from contractor-applicant.component.html
+  const isFormDisabled = useMemo(() => {
+    if (!applicationData) return false;
+    
+    // Angular: [class.cursorNotAllowed]="application?(!this.application?.isAllowEdit):false"
+    const disabled = !applicationData?.isAllowEdit;
+    
+    console.log('🔒 [FIELD-STATE] isFormDisabled calculation:', {
+      applicationData: !!applicationData,
+      isAllowEdit: applicationData?.isAllowEdit,
+      result: disabled
+    });
+    return disabled;
+  }, [applicationData]);
+
+  const areFieldsDisabled = useMemo(() => {
+    if (!applicationData) return false;
+    
+    // Angular field disabling logic (EXACT match):
+    // [class.disableFieldForLock]="hideContractorElementsForLockPage || instrumentsList?.length>0 || 
+    // (application?.applicationLifeCycleStatusType===0 ||application?.applicationLifeCycleStatusType===1 ||
+    // application?.applicationLifeCycleStatusType===2 ||application?.applicationLifeCycleStatusType===3|| 
+    // application?.applicationLifeCycleStatusType===5 || application?.applicationPurposeType===2)"
+    
+    const disabledStatuses = [0, 1, 2, 3, 5];
+    const isLifeCycleDisabled = disabledStatuses.includes(applicationData?.applicationLifeCycleStatusType);
+    const isPurposeTypeDisabled = applicationData?.applicationPurposeType === 2; // Renewal
+    const hasInstruments = instruments && instruments.length > 0;
+    
+    const disabled = hideContractorElementsForLockPage || 
+                    hasInstruments || 
+                    isLifeCycleDisabled || 
+                    isPurposeTypeDisabled;
+    
+    console.log('🔒 [FIELD-STATE] areFieldsDisabled calculation:', {
+      hideContractorElementsForLockPage,
+      hasInstruments,
+      instrumentsLength: instruments?.length || 0,
+      applicationLifeCycleStatusType: applicationData?.applicationLifeCycleStatusType,
+      applicationPurposeType: applicationData?.applicationPurposeType,
+      isLifeCycleDisabled,
+      isPurposeTypeDisabled,
+      disabledStatuses,
+      result: disabled
+    });
+    return disabled;
+  }, [applicationData, hideContractorElementsForLockPage, instruments]);
 
   const {
     applicationId,
@@ -84,6 +137,9 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     persistApplicationState,
     restoreApplicationState
   } = useContractorApplication();
+
+  // Angular naming: this.apprefId (references the same value as applicationId)
+  const apprefId = applicationId;
 
   const {
     loading: projectSiteLoading,
@@ -197,68 +253,94 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     };
   }, []);
 
-  // Ensure application exists before operations
+  // Ensure application exists before operations (Angular: checks this.apprefId before creating)
   const ensureApplicationExists = useCallback(async (): Promise<number | null> => {
     console.log('🔍 [CONTRACTOR-FORM] Checking if application exists...');
+    console.log('🔍 [CONTRACTOR-FORM] Current apprefId:', apprefId);
+    console.log('🔍 [CONTRACTOR-FORM] draftApplicationId:', draftApplicationId);
     
+    // ✅ FIX: Use draftApplicationId first (from navigation), then apprefId
+    const existingAppId = draftApplicationId || apprefId;
+    
+    if (existingAppId && existingAppId !== 0) {
+      console.log('✅ [CONTRACTOR-FORM] Using existing application:', existingAppId);
+      return existingAppId;
+    }
+    
+    // Only create new application if no existing one found (like Angular)
     if (checkApplicationExists()) {
-      console.log('✅ [CONTRACTOR-FORM] Application exists:', applicationId);
+      console.log('✅ [CONTRACTOR-FORM] Application exists via hook:', applicationId);
       return applicationId;
     }
 
-    console.log('📝 [CONTRACTOR-FORM] Application does not exist, creating...');
+    console.log('📝 [CONTRACTOR-FORM] No existing application found, creating new...');
     const formData = getCurrentFormData();
     return await createApplication(formData);
-  }, [applicationId, checkApplicationExists, createApplication, getCurrentFormData]);
+  }, [draftApplicationId, apprefId, applicationId, checkApplicationExists, createApplication, getCurrentFormData]);
 
-  const refreshContractorData = useCallback(async () => {
+  // Angular function name: getContractorApplicationDetails() 
+  const getContractorApplicationDetails = useCallback(async () => {
     console.log('🔄 [CONTRACTOR-FORM] === REFRESH STARTED ===');
-    console.log('🔄 [CONTRACTOR-FORM] Current applicationId:', applicationId);
+    console.log('🔄 [CONTRACTOR-FORM] Current apprefId:', apprefId);
+    console.log('🔄 [CONTRACTOR-FORM] draftApplicationId:', draftApplicationId);
     
-    // Use draftApplicationId if provided, otherwise fall back to existing applicationId
-    let currentAppId = draftApplicationId || applicationId;
+    // ✅ FIX: Use same priority as Angular - draftApplicationId (from navigation) first
+    let currentAppId = draftApplicationId || apprefId;
     
-    // STRATEGY 1: Try to restore from session storage if no applicationId
-    if (!currentAppId) {
-      console.log('🔄 [CONTRACTOR-FORM] No applicationId, trying to restore from storage...');
-      const restored = restoreApplicationState();
-      if (restored?.appId) {
-        currentAppId = restored.appId;
-        console.log('✅ [CONTRACTOR-FORM] Restored applicationId from storage:', currentAppId);
-      }
+    // ✅ CRITICAL: If no valid appId, cannot refresh (same as Angular)
+    if (!currentAppId || currentAppId === 0) {
+      console.log('❌ [CONTRACTOR-FORM] No valid appId available for refresh');
+      console.log('❌ [CONTRACTOR-FORM] This means user needs to navigate properly or session expired');
+      return;
     }
     
-    // STRATEGY 2: Always attempt refresh (Angular behavior) - NO EARLY RETURN
-    console.log('🔄 [CONTRACTOR-FORM] Attempting data refresh with appId:', currentAppId || 'NONE');
+    console.log('🔄 [CONTRACTOR-FORM] Refreshing data from server with appId:', currentAppId);
     
     try {
-      let response;
+      console.log('📞 [CONTRACTOR-FORM] Making API call to getContractorApplicationDetailsById...');
       
-      if (currentAppId) {
-        console.log('� [CONTRACTOR-FORM] Calling getContractorApplicationDetailsById with appId:', currentAppId);
-        response = await userDetailsService.getContractorApplicationDetailsById(currentAppId);
-      } else {
-        console.log('📡 [CONTRACTOR-FORM] No appId available, trying to find existing applications...');
-        // STRATEGY 3: Try to get project site data which might contain existing applications
-        response = await userDetailsService.getProjectSiteData();
-      }
+      const response = await userDetailsService.getContractorApplicationDetailsById(currentAppId);
+      
+      console.log('� [CONTRACTOR-FORM] Raw API response:');
+      console.log('📥 [CONTRACTOR-FORM] - Success:', response.success);
+      console.log('📥 [CONTRACTOR-FORM] - Data structure:', response.data ? Object.keys(response.data) : 'No data');
+      console.log('📥 [CONTRACTOR-FORM] - FormModel length:', response.data?.formModel?.length || 0);
       
       if (response.success && response.data?.formModel?.[0]) {
         const contractorData = response.data.formModel[0];
         
-        console.log('� [CONTRACTOR-FORM] Contractor data received:', contractorData);
+        console.log('✅ [CONTRACTOR-FORM] Contractor data received for appId:', currentAppId);
+        console.log('📊 [CONTRACTOR-FORM] Data contains:');
+        console.log('📊 [CONTRACTOR-FORM] - Working Areas:', contractorData.applicationTehsilLevelUserWorking?.length || 0);
+        console.log('📊 [CONTRACTOR-FORM] - Instruments:', contractorData.applicationInstrumentalDetail?.length || 0);
+        console.log('📊 [CONTRACTOR-FORM] - Partners:', contractorData.contractorPartnership_GeneralDetails?.length || 0);
         
         // Map Working Areas (exact Angular logic)
         const workingAreasData = contractorData.applicationTehsilLevelUserWorking || [];
+        console.log('🗂️ [CONTRACTOR-FORM] Raw working areas from server:', workingAreasData);
+        
+        // ✅ FIX: Include ALL required fields for deletion
+        if (workingAreasData.length > 0) {
+          console.log('📊 [CONTRACTOR-FORM] Sample working area from server:', workingAreasData[0]);
+          console.log('📊 [CONTRACTOR-FORM] Available fields:', Object.keys(workingAreasData[0]));
+        }
+        
         const mappedWorkingAreas = workingAreasData.map((area: any) => ({
-          id: area.tehsilLevelUserMappingId,
-          district: area.districtName,
-          tehsil: area.tehsilName,
-          districtRefId: area.districtRefId,
-          tehsilRefId: area.tehsilRefId,
+          id: area.tehsilLevelUserMappingId,                    // Keep for backward compatibility
+          tehsilLevelUserMappingId: area.tehsilLevelUserMappingId, // ✅ Required for deletion API
+          district: area.districtName,                          // React naming
+          tehsil: area.tehsilName,                             // React naming
+          districtName: area.districtName,                     // Angular naming compatibility
+          tehsilName: area.tehsilName,                         // Angular naming compatibility
+          districtRefId: area.districtRefId,                   // Required for validation
+          tehsilRefId: area.tehsilRefId,                       // Required for validation
+          appRefId: area.appRefId,                             // Required for API calls
           action: 'Delete'
         }));
-        setWorkingAreas(mappedWorkingAreas);
+        
+        console.log('✅ [CONTRACTOR-FORM] Working Areas mapped with full data:', mappedWorkingAreas);
+        console.log('✅ [CONTRACTOR-FORM] First mapped area structure:', mappedWorkingAreas[0] || 'No areas');
+        setWorkingAreaList(mappedWorkingAreas);
         console.log('✅ [CONTRACTOR-FORM] Working Areas mapped:', mappedWorkingAreas.length, 'items');
         
         // Map Instruments (exact Angular logic)
@@ -327,6 +409,28 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
             console.log('✅ [CONTRACTOR-FORM] Mapped Business Entity Address:', generalDetails.businessEntityAddress);
           }
         }
+
+        // CRITICAL: Set applicationData for field state management (EXACT Angular mapping)
+        // Angular: this.application = this.contractorApplicationDetails[this.contractorApplicationDetails.length - 1];
+        // In our case, contractorData is already the formModel[0] which corresponds to the application object in Angular
+        setApplicationData(contractorData);
+        
+        // Angular: this.hideContractorElementsForLockPage logic (enhanced)
+        // Check if should hide based on status or explicit flag
+        const shouldHideElements = contractorData?.hideContractorElementsForLockPage || 
+                                  contractorData?.applicationLifeCycleStatusType === 2 || // Approved
+                                  contractorData?.applicationLifeCycleStatusType === 3;   // Rejected
+        setHideContractorElementsForLockPage(shouldHideElements);
+        
+        console.log('🔒 [CONTRACTOR-FORM] Application data set for field state management (Angular mapping):', {
+          isAllowEdit: contractorData?.isAllowEdit,
+          applicationLifeCycleStatusType: contractorData?.applicationLifeCycleStatusType,
+          applicationPurposeType: contractorData?.applicationPurposeType,
+          hideContractorElementsForLockPage: shouldHideElements,
+          rawHideFlag: contractorData?.hideContractorElementsForLockPage,
+          instrumentsCount: mappedInstruments?.length || 0,
+          fullApplicationData: contractorData
+        });
         
         console.log('✅ [CONTRACTOR-FORM] All contractor data loaded successfully');
         console.log('📊 Summary - Working Areas:', mappedWorkingAreas.length, 'Instruments:', mappedInstruments.length, 'Partners:', mappedPartners.length);
@@ -342,7 +446,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     }
     
     console.log('🔄 [CONTRACTOR-FORM] === REFRESH ENDED ===');
-  }, [draftApplicationId, applicationId, restoreApplicationState, setWorkingAreas, setInstruments, setPartners, setSaveError]);
+  }, [draftApplicationId, apprefId, restoreApplicationState, setWorkingAreaList, setInstruments, setPartners, setSaveError]);
 
   // Auto-restore state and refresh data after initial load
   useEffect(() => {
@@ -357,20 +461,20 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         console.log('🔄 [CONTRACTOR-FORM] Forcing immediate data refresh...');
         // Force refresh after state restoration with small delay to ensure state is set
         setTimeout(() => {
-          refreshContractorData();
+          getContractorApplicationDetails();
         }, 100);
       } else {
         console.log('ℹ️ [CONTRACTOR-FORM] No saved state found, but still attempting refresh...');
         // Even without saved state, try to refresh in case there's data on the server
         setTimeout(() => {
-          refreshContractorData();
+          getContractorApplicationDetails();
         }, 100);
       }
     }
-  }, [isInitialLoad, restoreApplicationState, refreshContractorData]);
+  }, [isInitialLoad, restoreApplicationState, getContractorApplicationDetails]);
 
-  // Enhanced Add Working Area with validation and application check
-  const handleAddWorkingArea = useCallback(async () => {
+  // Enhanced Add Working Area with validation and application check (Angular function name: addWorkingArea)
+  const addWorkingArea = useCallback(async () => {
     console.log('🚀 [ADD-WORKING-AREA] Function started');
     console.log('🚀 [ADD-WORKING-AREA] Form values:', {
       workingOnDistrict,
@@ -399,20 +503,24 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
 
     try {
       // STEP 3: Check if application details exist, create if needed (matches Angular apprefId check)
-      console.log('🚀 [ADD-WORKING-AREA] Current applicationId:', applicationId);
+      console.log('🚀 [ADD-WORKING-AREA] Application ID sources:');
+      console.log('🚀 [ADD-WORKING-AREA] - apprefId:', apprefId);
+      console.log('🚀 [ADD-WORKING-AREA] - draftApplicationId:', draftApplicationId);
       
-      let currentApplicationId = applicationId;
+      // ✅ FIX: Use same priority as Angular - draftApplicationId first, then apprefId
+      let currentApprefId = draftApplicationId || apprefId;
+      console.log('🚀 [ADD-WORKING-AREA] Selected apprefId:', currentApprefId);
       
-      if (!currentApplicationId || currentApplicationId === 0) {
-        console.log('📝 [ADD-WORKING-AREA] applicationId is 0/undefined, calling ensureApplicationExists');
+      if (!currentApprefId || currentApprefId === 0) {
+        console.log('📝 [ADD-WORKING-AREA] No valid apprefId, calling ensureApplicationExists');
         try {
-          currentApplicationId = await ensureApplicationExists();
-          if (!currentApplicationId) {
-            console.error('❌ [ADD-WORKING-AREA] Error in ensureApplicationExists');
+          currentApprefId = await ensureApplicationExists();
+          if (!currentApprefId) {
+            console.error('❌ [ADD-WORKING-AREA] ensureApplicationExists failed to return valid ID');
             setSaveError(WORKING_AREA_ERRORS.APPLICATION_CREATE_FAILED);
             return;
           }
-          console.log('✅ [ADD-WORKING-AREA] ensureApplicationExists completed successfully');
+          console.log('✅ [ADD-WORKING-AREA] ensureApplicationExists returned apprefId:', currentApprefId);
         } catch (error) {
           console.error('❌ [ADD-WORKING-AREA] Error in ensureApplicationExists:', error);
           setSaveError(WORKING_AREA_ERRORS.APPLICATION_CREATE_FAILED);
@@ -425,7 +533,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       const districtRefId = workingOnDistrict as number;
       const tehsilRefId = workingOnTehsil as number;
       
-      const existingWorkingAreas = workingAreas || [];
+      const existingWorkingAreas = workingAreaList || [];
       
       const duplicateCheck = validateWorkingAreaDuplicate(
         districtRefId,
@@ -448,7 +556,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       const selectedTehsil = tehsils.find(t => t.tehsilId === tehsilRefId);
 
       const workingAreaPayload = createWorkingAreaPayload(
-        currentApplicationId,
+        currentApprefId,
         districtRefId,
         tehsilRefId,
         selectedDistrict?.districtName || '',
@@ -466,8 +574,14 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('📥 [ADD-WORKING-AREA] API Response received:', response);
 
       // STEP 7: Handle success response (EXACT Angular match)
+      console.log('📥 [ADD-WORKING-AREA] API Response details:');
+      console.log('📥 [ADD-WORKING-AREA] - Success:', response.success);
+      console.log('📥 [ADD-WORKING-AREA] - Data:', response.data);
+      console.log('📥 [ADD-WORKING-AREA] - Message:', response.message);
+      
       if (response.success) {
         console.log('✅ [ADD-WORKING-AREA] API call successful');
+        console.log('✅ [ADD-WORKING-AREA] Working area saved to appRefId:', currentApprefId);
         
         // Hide spinner (matches Angular this.spinner.hide())
         setIsAddingWorkingArea(false);
@@ -485,15 +599,16 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         // Update local state immediately (optimistic update)
         const newWorkingArea: WorkingArea = {
           id: Date.now(),
+          tehsilLevelUserMappingId: 0, // ✅ Temporary ID, will be updated by server refresh
           district: selectedDistrict?.districtName || districtRefId.toString(),
           tehsil: selectedTehsil?.tehsilName || tehsilRefId.toString(),
           action: 'Delete',
           districtRefId: districtRefId,
           tehsilRefId: tehsilRefId,
-          appRefId: currentApplicationId
+          appRefId: currentApprefId
         };
 
-        setWorkingAreas(prevAreas => [...prevAreas, newWorkingArea]);
+        setWorkingAreaList(prevAreas => [...prevAreas, newWorkingArea]);
         
         // Show success message
         setSaveSuccess(WORKING_AREA_SUCCESS_MESSAGES.AREA_ADDED);
@@ -503,12 +618,23 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
 
         // Refresh contractor data from server (matches Angular this.getContractorApplicationDetails())
         console.log('🔄 [ADD-WORKING-AREA] Refreshing contractor data from server...');
-        await refreshContractorData();
+        await getContractorApplicationDetails();
         
         console.log('✅ [ADD-WORKING-AREA] Process completed successfully');
 
       } else {
-        // Handle API success=false case
+        // Handle API success=false case (CRITICAL for debugging)
+        console.error('❌ [ADD-WORKING-AREA] API returned success=false');
+        console.error('❌ [ADD-WORKING-AREA] Response message:', response.message);
+        console.error('❌ [ADD-WORKING-AREA] Response error:', response.error);
+        console.error('❌ [ADD-WORKING-AREA] Full response:', response);
+        
+        // Check for silent failure patterns
+        if (response.message?.includes('not found') || response.message?.includes('invalid')) {
+          console.error('🚨 [ADD-WORKING-AREA] SILENT FAILURE DETECTED - Invalid appRefId:', currentApprefId);
+          throw new Error(`Application not found (ID: ${currentApprefId}). Please refresh the page and try again.`);
+        }
+        
         throw new Error(response.message || response.error || 'Failed to add working area');
       }
 
@@ -541,19 +667,19 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   }, [
     workingOnDistrict,
     workingOnTehsil,
-    applicationId,
+    apprefId,
     ensureApplicationExists,
-    workingAreas,
+    workingAreaList,
     districts,
     tehsils,
     resetTehsils,
-    refreshContractorData,
+    getContractorApplicationDetails,
     setWorkingAreaFormErrors,
     setSaveError,
     setIsAddingWorkingArea,
     setWorkingOnDistrict,
     setWorkingOnTehsil,
-    setWorkingAreas,
+    setWorkingAreaList,
     setSaveSuccess
   ]); // ← This closing bracket and dependency array was missing
 
@@ -903,9 +1029,124 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     }
   };
 
-  // Handle Delete Working Area
-  const handleDeleteWorkingArea = (id: number) => {
-    setWorkingAreas(workingAreas.filter(area => area.id !== id));
+  // Handle Delete Working Area (Angular naming: removeWorkingArea)
+  const handleDeleteWorkingArea = async (workingArea: WorkingArea) => {
+    console.log('🗑️ [DELETE_WORKING_AREA] ===== DELETE BUTTON CLICKED =====');
+    console.log('🗑️ [DELETE_WORKING_AREA] Function: handleDeleteWorkingArea() started');
+    console.log('🗑️ [DELETE_WORKING_AREA] Received workingArea object:', workingArea);
+    
+    // ✅ ADD: Enhanced debug logging for field analysis
+    console.log('🗑️ [DELETE_WORKING_AREA] Field analysis:', {
+      'workingArea.tehsilLevelUserMappingId': workingArea?.tehsilLevelUserMappingId,
+      'workingArea.id': workingArea?.id,
+      'workingArea.district': workingArea?.district,
+      'workingArea.tehsil': workingArea?.tehsil,
+      'workingArea.districtRefId': workingArea?.districtRefId,
+      'workingArea.tehsilRefId': workingArea?.tehsilRefId,
+      'typeof tehsilLevelUserMappingId': typeof workingArea?.tehsilLevelUserMappingId,
+      'available fields': Object.keys(workingArea || {})
+    });
+
+    // ✅ FIX: Enhanced validation with better error messages
+    if (!workingArea?.tehsilLevelUserMappingId && !workingArea?.id) {
+      console.error('❌ [DELETE_WORKING_AREA] No valid ID found in working area object');
+      console.error('❌ [DELETE_WORKING_AREA] Working area structure:', Object.keys(workingArea || {}));
+      setSaveError('Invalid working area data. Please refresh the page and try again.');
+      return;
+    }
+
+    // ✅ FIX: Use tehsilLevelUserMappingId if available, fallback to id
+    const mappingId = workingArea?.tehsilLevelUserMappingId || workingArea?.id;
+    console.log('🗑️ [DELETE_WORKING_AREA] Using mapping ID:', mappingId, 'Type:', typeof mappingId);
+
+    if (!mappingId) {
+      console.error('❌ [DELETE_WORKING_AREA] Missing tehsilLevelUserMappingId');
+      setSaveError('Cannot delete: Missing working area identifier. Please refresh and try again.');
+      return;
+    }
+    
+    console.log('🔍 [DELETE_WORKING_AREA] ===== CHECKING IF WORKING AREA IS USED IN INSTRUMENTS =====');
+    console.log('🔍 [DELETE_WORKING_AREA] Current instruments list:', instruments);
+    console.log('🔍 [DELETE_WORKING_AREA] Instruments list length:', instruments?.length || 0);
+    
+    const exists = instruments.some((item: any) => {
+      const workingAreaDistrictId = workingArea?.districtRefId;
+      const workingAreaTehsilId = workingArea?.tehsilRefId;
+      
+      if (!workingAreaDistrictId || !workingAreaTehsilId) return false;
+      
+      const matchesDistrict = item.districtRefId === workingAreaDistrictId;
+      const matchesTehsil = item.tehsilRefId === workingAreaTehsilId;
+      console.log('🔍 [DELETE_WORKING_AREA] Checking instrument:', item);
+      console.log('🔍 [DELETE_WORKING_AREA] - Instrument District ID:', item.districtRefId, 'vs Working Area District ID:', workingAreaDistrictId, 'Match:', matchesDistrict);
+      console.log('🔍 [DELETE_WORKING_AREA] - Instrument Tehsil ID:', item.tehsilRefId, 'vs Working Area Tehsil ID:', workingAreaTehsilId, 'Match:', matchesTehsil);
+      return matchesDistrict && matchesTehsil;
+    });
+    
+    console.log('🔍 [DELETE_WORKING_AREA] Working area is used in instruments:', exists);
+    
+    if (exists) {
+      console.log('⚠️ [DELETE_WORKING_AREA] ===== WORKING AREA IS IN USE - SHOWING ERROR =====');
+      console.log('⚠️ [DELETE_WORKING_AREA] Cannot delete working area because it is being used in instruments');
+      setSaveError(WORKING_AREA_ERRORS.IN_USE);
+      return;
+    }
+
+    console.log('✅ [DELETE_WORKING_AREA] ===== WORKING AREA CAN BE DELETED =====');
+    console.log('✅ [DELETE_WORKING_AREA] Working area is not used in any instruments');
+    console.log('✅ [DELETE_WORKING_AREA] Starting confirmation dialog');
+
+    // ✅ IMPROVED CONFIRMATION: More detailed message like Angular
+    const confirmMessage = `Are you sure you want to delete the working area?\n\nDistrict: ${workingArea.district}\nTehsil: ${workingArea.tehsil}\n\nThis action cannot be undone.`;
+    const confirmed = window.confirm(confirmMessage);
+    
+    if (!confirmed) {
+      console.log('🗑️ [DELETE_WORKING_AREA] User cancelled deletion');
+      return;
+    }
+
+    console.log('✅ [DELETE_WORKING_AREA] User confirmed deletion, proceeding...');
+
+    // ✅ FIX: Use Angular's exact parameter format
+    try {
+      setIsAddingWorkingArea(true);
+      
+      console.log('🌐 [DELETE_WORKING_AREA] ===== MAKING DELETE API CALL =====');
+      console.log('🌐 [DELETE_WORKING_AREA] API Endpoint: /ContractorLicence/deleteContractWorkingTehsil_ById');
+      console.log('🌐 [DELETE_WORKING_AREA] API Method: GET (Angular parity - FIXED)');
+      console.log('🌐 [DELETE_WORKING_AREA] Parameter format: Query string (Angular parity)');
+      console.log('🌐 [DELETE_WORKING_AREA] workingTehsilId:', mappingId);
+
+      // ✅ FIX: Use Angular's exact parameter name and format
+      const response = await userDetailsService.deleteContractorWorkingArea(Number(mappingId));
+      
+      console.log('🎉 [DELETE_WORKING_AREA] ===== DELETE API RESPONSE RECEIVED =====');
+      console.log('🎉 [DELETE_WORKING_AREA] API Response data:', response);
+
+      // ✅ ANGULAR PARITY: Check response success like Angular
+      if (response.success) {
+        console.log('✅ [DELETE_WORKING_AREA] Deletion successful');
+        
+        // ✅ ANGULAR PARITY: Show success message like Angular's SweetAlert
+        setSaveSuccess('Working area has been deleted successfully!');
+        
+        console.log('🔄 [DELETE_WORKING_AREA] ===== REFRESHING DATA AFTER DELETE =====');
+        console.log('🔄 [DELETE_WORKING_AREA] Calling getContractorApplicationDetails to refresh data');
+        
+        // ✅ ANGULAR PARITY: Refresh data from server like Angular
+        await getContractorApplicationDetails();
+      } else {
+        console.error('❌ [DELETE_WORKING_AREA] API returned failure:', response);
+        setSaveError(response.message || 'Failed to delete working area');
+      }
+      
+    } catch (error) {
+      console.error('❌ [DELETE_WORKING_AREA] ===== DELETE API ERROR =====');
+      console.error('❌ [DELETE_WORKING_AREA] API Error:', error);
+      setSaveError('An error occurred while deleting the working area. Please try again.');
+    } finally {
+      setIsAddingWorkingArea(false);
+    }
   };
 
   // Handle Delete Instrument
@@ -937,13 +1178,13 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     businessEntityAddress,
     setBusinessEntityAddress,
     
-    // Working Area States
+    // Working Area States (Angular naming: workingAreaList)
     workingOnDistrict, 
     setWorkingOnDistrict,
     workingOnTehsil, 
     setWorkingOnTehsil,
-    workingAreas, 
-    setWorkingAreas,
+    workingAreaList, 
+    setWorkingAreaList,
     workingAreaFormErrors,
     
     // Instrument States
@@ -976,8 +1217,9 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     saveError, setSaveError,
     isAddingWorkingArea,
 
-    // Application management
+    // Application management (Angular naming: apprefId)
     applicationId,
+    apprefId,
     applicationState,
     formMode,
     isCreatingApplication,
@@ -1002,7 +1244,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     handleInstrumentTehsilChange,
     handleContractorTypeChange,
     handleCurrentWorkingVoltageChange,
-    handleAddWorkingArea, 
+    addWorkingArea, 
     handleAddInstrument,
     handleAddPartner,
     handleDeleteWorkingArea,
@@ -1017,7 +1259,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     validateWorkingAreaForm,
     getCurrentFormData,
     ensureApplicationExists,
-    refreshContractorData,
+    getContractorApplicationDetails,
     loadContractorDataFromAPI,
     
     // Application state management
@@ -1030,6 +1272,23 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     getRangeUnitEnum,
     getContractorTypeId,
     getVoltageTypeId,
-    getRangeUnitId
+    getRangeUnitId,
+
+    // Field State Management (COMPLETE Angular parity)
+    applicationData,
+    hideContractorElementsForLockPage,
+    isFormDisabled,
+    areFieldsDisabled,
+
+    // Field State Debug Information (helpful for testing)
+    fieldStateDebug: {
+      hasApplicationData: !!applicationData,
+      isAllowEdit: applicationData?.isAllowEdit,
+      applicationLifeCycleStatusType: applicationData?.applicationLifeCycleStatusType,
+      applicationPurposeType: applicationData?.applicationPurposeType,
+      hideContractorElementsForLockPage,
+      instrumentsCount: instruments?.length || 0,
+      computedDisabled: areFieldsDisabled
+    }
   };
 };
