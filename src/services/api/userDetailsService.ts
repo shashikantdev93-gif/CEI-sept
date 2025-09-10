@@ -416,18 +416,21 @@ export const userDetailsService = {
 
   /**
    * Deletes contractor partner (Angular parity)
-   * @param partnerId - Partner ID to delete
+   * @param partnerId - Partner ID to delete (Angular: contactPartnershipId)
    * @returns Promise with delete response
    */
   async deletePartner(partnerId: number): Promise<ApiResponse<any>> {
     console.log('🗑️ [USER-SERVICE] Deleting partner with ID:', partnerId);
-    console.log('🗑️ [USER-SERVICE] API endpoint: /ContractorLicence/deleteContractPartner_ById');
-    console.log('🗑️ [USER-SERVICE] HTTP method: GET (Angular parity)');
-    console.log('🗑️ [USER-SERVICE] Parameter format: Query string (Angular parity)');
+    console.log('🗑️ [USER-SERVICE] ===== ANGULAR PARITY IMPLEMENTATION =====');
+    console.log('🗑️ [USER-SERVICE] Angular endpoint: ContractorLicence/deleteContractPartner_ById');
+    console.log('🗑️ [USER-SERVICE] Angular method: GET (httpGet)');
+    console.log('🗑️ [USER-SERVICE] Angular parameter: partnershipId (not partnerId!)');
+    console.log('🗑️ [USER-SERVICE] Angular value: contactPartnershipId');
 
     try {
+      // ✅ CRITICAL FIX: Angular uses 'partnershipId' parameter, not 'partnerId'
       const response = await axiosInterceptor.get<any>(
-        `/ContractorLicence/deleteContractPartner_ById?partnerId=${partnerId}`
+        `/ContractorLicence/deleteContractPartner_ById?partnershipId=${partnerId}`
       );
 
       console.log('✅ [USER-SERVICE] Partner deletion response:', response);
@@ -440,18 +443,20 @@ export const userDetailsService = {
 
   /**
    * Deletes contractor instrument (Angular parity)
-   * @param instrumentId - Instrument ID to delete
+   * @param instrumentId - Instrument ID to delete (Angular: contactInstrumentId)
    * @returns Promise with delete response
    */
   async deleteInstrument(instrumentId: number): Promise<ApiResponse<any>> {
     console.log('🗑️ [USER-SERVICE] Deleting instrument with ID:', instrumentId);
-    console.log('🗑️ [USER-SERVICE] API endpoint: /ContractorLicence/deleteContractInstrument_ById');
-    console.log('🗑️ [USER-SERVICE] HTTP method: GET (Angular parity)');
-    console.log('🗑️ [USER-SERVICE] Parameter format: Query string (Angular parity)');
+    console.log('🗑️ [USER-SERVICE] ===== ANGULAR PARITY IMPLEMENTATION =====');
+    console.log('🗑️ [USER-SERVICE] Angular endpoint: ContractorLicence/deleteContractInstrumentDetails_ById');
+    console.log('🗑️ [USER-SERVICE] Angular method: GET (httpGet)');
+    console.log('🗑️ [USER-SERVICE] Angular parameter: instrumentId (query parameter)');
 
     try {
+      // ✅ FIXED: Use exact Angular endpoint and method
       const response = await axiosInterceptor.get<any>(
-        `/ContractorLicence/deleteContractInstrument_ById?instrumentId=${instrumentId}`
+        `/ContractorLicence/deleteContractInstrumentDetails_ById?instrumentId=${instrumentId}`
       );
 
       console.log('✅ [USER-SERVICE] Instrument deletion response:', response);

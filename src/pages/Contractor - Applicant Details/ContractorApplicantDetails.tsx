@@ -42,6 +42,9 @@ const ContractorApplicantDetails: React.FC = () => {
   instrumentTehsil,             
   instruments,
   selectedInstrumentList,
+  instrumentCharacterCount,
+  isAddingInstrument,
+  instrumentFormErrors,
   
   // Partner States
   partnerName, setPartnerName,
@@ -76,12 +79,15 @@ const ContractorApplicantDetails: React.FC = () => {
   handleCurrentWorkingVoltageChange,
   handleWorkingTehsilChange,
   addWorkingArea,
-  handleAddInstrument,
+  handleAddInstrumentDetails, // ✅ Enhanced Angular parity version
   handleAddPartner,
   handleDeleteWorkingArea,
   handleDeleteInstrument,
   handleDeletePartner,
   handleFileUploaded,
+  handleInstrumentSerialNoChange,
+  handleInstrumentSerialNoBlur,
+  handleInstrumentMakeChange,
   
   // Refresh function for draft data (Angular naming: getContractorApplicationDetails)
   getContractorApplicationDetails,
@@ -893,10 +899,22 @@ const ContractorApplicantDetails: React.FC = () => {
                     <Form.Control
                       type="text"
                       value={instrumentSerialNo}
-                      onChange={(e) => setInstrumentSerialNo(e.target.value)}
+                      onChange={(e) => handleInstrumentSerialNoChange(e.target.value)}
+                      onBlur={(e) => handleInstrumentSerialNoBlur(e.target.value)}
                       placeholder=""
                       className="form-control-custom"
                     />
+                    {/* Character Count Display (Angular parity) */}
+                    <div className="text-muted small mt-1">
+                      {instrumentCharacterCount.serialNo}/50 characters
+                    </div>
+                    {/* Validation Error Display (Angular parity) */}
+                    {instrumentFormErrors.serialNo && (
+                      <div className="text-danger small mt-1">
+                        <i className="bi bi-exclamation-circle me-1"></i>
+                        {instrumentFormErrors.serialNo}
+                      </div>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={4}>
@@ -907,10 +925,21 @@ const ContractorApplicantDetails: React.FC = () => {
                     <Form.Control
                       type="text"
                       value={instrumentMake}
-                      onChange={(e) => setInstrumentMake(e.target.value)}
+                      onChange={(e) => handleInstrumentMakeChange(e.target.value)}
                       placeholder=""
                       className="form-control-custom"
                     />
+                    {/* Character Count Display (Angular parity) */}
+                    <div className="text-muted small mt-1">
+                      {instrumentCharacterCount.make}/100 characters
+                    </div>
+                    {/* Validation Error Display (Angular parity) */}
+                    {instrumentFormErrors.make && (
+                      <div className="text-danger small mt-1">
+                        <i className="bi bi-exclamation-circle me-1"></i>
+                        {instrumentFormErrors.make}
+                      </div>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -976,11 +1005,21 @@ const ContractorApplicantDetails: React.FC = () => {
                       disabled={loading.districts}
                     >
                       <option value="">-Select District-</option>
-                      {districts.map((districtItem, idx) => (
-                        <option key={`${districtItem.districtCode}-${idx}`} value={districtItem.districtCode}>
-                          {districtItem.districtName}
-                        </option>
-                      ))}
+                      {/* CRITICAL: Filter districts by working areas (Angular parity) */}
+                      {districts
+                        .filter(districtItem => {
+                          // Only show districts that are in contractor's working areas
+                          const hasMatch = workingAreaList.some(workingArea => 
+                            workingArea.districtRefId === districtItem.districtCode
+                          );
+                          console.log(`🎯 [DISTRICT-FILTER] ${districtItem.districtName}: ${hasMatch ? 'INCLUDED' : 'EXCLUDED'}`);
+                          return hasMatch;
+                        })
+                        .map((districtItem, idx) => (
+                          <option key={`${districtItem.districtCode}-${idx}`} value={districtItem.districtCode}>
+                            {districtItem.districtName}
+                          </option>
+                        ))}
                     </Form.Select>
                     <div className="d-flex align-items-center mt-1">
                       {loading.districts && (
@@ -990,6 +1029,12 @@ const ContractorApplicantDetails: React.FC = () => {
                         {locationErrors.districts}
                       </div>
                     </div>
+                    {workingAreaList.length > 0 && (
+                      <div className="text-muted small mt-1">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Only districts from your working areas are shown
+                      </div>
+                    )}
                   </Form.Group>
                 </Col>
 
@@ -1010,11 +1055,20 @@ const ContractorApplicantDetails: React.FC = () => {
                         No tehsils found for this district
                       </option>
                     )}
-                    {tehsils.map((tehsilItem, idx) => (
-                      <option key={`${tehsilItem.tehsilId}-${idx}`} value={tehsilItem.tehsilId}>
-                        {tehsilItem.tehsilName}
-                      </option>
-                    ))}
+                    {/* CRITICAL: Filter tehsils by working areas (Angular parity) */}
+                    {tehsils
+                      .filter(tehsilItem => {
+                        // Only show tehsils that are in contractor's working areas for the selected district
+                        return workingAreaList.some(workingArea => 
+                          workingArea.districtRefId === Number(instrumentDistrict) &&
+                          workingArea.tehsilRefId === tehsilItem.tehsilId
+                        );
+                      })
+                      .map((tehsilItem, idx) => (
+                        <option key={`${tehsilItem.tehsilId}-${idx}`} value={tehsilItem.tehsilId}>
+                          {tehsilItem.tehsilName}
+                        </option>
+                      ))}
                   </Form.Select>
                   <div className="d-flex align-items-center mt-1">
                     {loading.tehsils && (
@@ -1024,26 +1078,25 @@ const ContractorApplicantDetails: React.FC = () => {
                       {locationErrors.tehsils}
                     </div>
                   </div>
+                  {workingAreaList.length > 0 && instrumentDistrict && (
+                    <div className="text-muted small mt-1">
+                      <i className="bi bi-info-circle me-1"></i>
+                      Only tehsils from your working areas are shown
+                    </div>
+                  )}
                 </Form.Group>
               </Col>
 
               <Col md={4} className="d-flex align-items-end">
                 <Button
                   variant="primary"
-                  onClick={handleAddInstrument}
+                  onClick={handleAddInstrumentDetails}
                   className="btn-custom w-100"
                   style={{ height: '38px' }}
-                  disabled={
-                    !instrument || 
-                    !instrumentSerialNo || 
-                    !instrumentMake || 
-                    !instrumentDistrict ||      // FIXED: Use instrumentDistrict
-                    !instrumentTehsil ||        // FIXED: Use instrumentTehsil
-                    selectedInstrumentList.length === 0
-                  }
+                  disabled={isAddingInstrument}
                 >
                   <i className="bi bi-plus-circle me-2"></i>
-                  Add Instrument
+                  {isAddingInstrument ? 'Adding...' : 'Add Instrument'}
                 </Button>
               </Col>
               </Row>

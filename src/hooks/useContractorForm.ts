@@ -394,6 +394,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         const instrumentsData = contractorData.applicationInstrumentalDetail || [];
         const mappedInstruments = instrumentsData.map((inst: any) => ({
           id: inst.contactInstrumentId,
+          contactInstrumentId: inst.contactInstrumentId, // ✅ PRESERVE for deletion API
           instrumentType: getInstrumentTypeName(inst.applicationInstrumentsType),
           instrumentSerialNo: inst.instrumentSerialNo,
           instrumentMake: inst.instrumentMakeBy,
@@ -402,6 +403,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
           tehsil: inst.tehsilName || '',
           districtRefId: inst.districtRefId,
           tehsilRefId: inst.tehsilRefId,
+          applicationInstrumentsType: inst.applicationInstrumentsType, // ✅ PRESERVE for validation
           action: 'Delete'
         }));
         setInstruments(mappedInstruments);
@@ -761,8 +763,8 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   // Handle Instrument District Change
   const handleInstrumentDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const districtCode = Number(e.target.value);
-    setDistrict(districtCode);
-    setTehsil("");
+    setInstrumentDistrict(districtCode);  // FIXED: Use setInstrumentDistrict instead of setDistrict
+    setInstrumentTehsil("");             // FIXED: Use setInstrumentTehsil instead of setTehsil
     resetTehsils();
 
     if (districtCode) {
@@ -1410,28 +1412,43 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     const errors: any = {};
     let isValid = true;
 
+    console.log('🔍 [VALIDATE-INSTRUMENT] ===== FORM VALIDATION DEBUG =====');
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrument:', instrument);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentSerialNo:', instrumentSerialNo);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentMake:', instrumentMake);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentRangeFrom:', instrumentRangeFrom);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentRangeTo:', instrumentRangeTo);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentRangeUnit:', instrumentRangeUnit);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentDistrict:', instrumentDistrict);
+    console.log('🔍 [VALIDATE-INSTRUMENT] instrumentTehsil:', instrumentTehsil);
+
     // Instrument validation (Angular: Validators.required)
     if (!instrument) {
       errors.instrument = 'Please select an instrument';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing instrument');
     }
 
     // Serial Number validation (Angular: Validators.required + pattern)
     if (!instrumentSerialNo || instrumentSerialNo.trim().length < 3) {
       errors.serialNo = 'Serial number is required (minimum 3 characters)';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing or invalid serial number');
     } else if (instrumentSerialNo.length > 50) {
       errors.serialNo = 'Serial number cannot exceed 50 characters';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Serial number too long');
     }
 
     // Make validation (Angular: Validators.required + pattern)
     if (!instrumentMake || instrumentMake.trim().length < 2) {
       errors.make = 'Make is required (minimum 2 characters)';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing or invalid make');
     } else if (instrumentMake.length > 100) {
       errors.make = 'Make cannot exceed 100 characters';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Make too long');
     }
 
     // Range validation (Angular: Validators.required + numeric)
@@ -1441,36 +1458,43 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     if (!instrumentRangeFrom || rangeFromNum <= 0) {
       errors.rangeFrom = 'Range from is required and must be greater than 0';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing or invalid range from');
     }
 
     if (!instrumentRangeTo || rangeToNum <= 0) {
       errors.rangeTo = 'Range to is required and must be greater than 0';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing or invalid range to');
     }
 
     if (rangeFromNum > 0 && rangeToNum > 0 && rangeFromNum >= rangeToNum) {
       errors.rangeTo = 'Range to must be greater than range from';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Range to must be greater than range from');
     }
 
     // Range Unit validation (Angular: Validators.required)
     if (!instrumentRangeUnit) {
       errors.rangeUnit = 'Please select a range unit';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing range unit');
     }
 
     // District validation (Angular: Validators.required)
     if (!instrumentDistrict) {
       errors.district = 'Please select a district';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing district');
     }
 
     // Tehsil validation (Angular: Validators.required)
     if (!instrumentTehsil) {
       errors.tehsil = 'Please select a tehsil';
       isValid = false;
+      console.log('❌ [VALIDATE-INSTRUMENT] Missing tehsil');
     }
 
+    console.log('🔍 [VALIDATE-INSTRUMENT] Validation result:', { isValid, errors });
     setInstrumentFormErrors(errors);
     return isValid;
   }, [instrument, instrumentSerialNo, instrumentMake, instrumentRangeFrom, instrumentRangeTo, instrumentRangeUnit, instrumentDistrict, instrumentTehsil]);
@@ -1481,6 +1505,9 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
    */
   const handleAddInstrumentDetails = useCallback(async (): Promise<void> => {
     console.log('🔧 [ADD_INSTRUMENT] ===== STARTING INSTRUMENT CREATION PROCESS =====');
+    console.log('🔧 [ADD_INSTRUMENT] Function: createInsturment() started (Angular naming)');
+    console.log('🔧 [ADD_INSTRUMENT] Current apprefId:', applicationId || apprefId);
+    console.log('🔧 [ADD_INSTRUMENT] Current instrumentsList length:', instruments?.length || 0);
     
     setInstrumentFormSubmitted(true);
     setIsAddingInstrument(true);
@@ -1488,7 +1515,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     setSaveError(null);
 
     try {
-      // Step 1: Form Validation
+      // Step 1: Form Validation (Angular: this.instrumentForm.valid)
       console.log('✅ [ADD_INSTRUMENT] Step 1: Form validation');
       if (!validateInstrumentForm()) {
         console.log('❌ [ADD_INSTRUMENT] Form validation failed');
@@ -1496,49 +1523,154 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         return;
       }
 
-      // Step 2: Check if application exists
+      // Step 2: Check if application exists (Angular: this.apprefId === 0)
       console.log('✅ [ADD_INSTRUMENT] Step 2: Application check');
-      const currentAppId = applicationId || apprefId;
+      let currentAppId = applicationId || apprefId;
+      
       if (!currentAppId) {
-        setSaveError('Please complete application details first');
+        console.log('🔧 [ADD_INSTRUMENT] apprefId is 0 or undefined, creating application details first');
+        try {
+          console.log('🔧 [ADD_INSTRUMENT] Calling ensureApplicationExists()...');
+          currentAppId = await ensureApplicationExists();
+          
+          if (!currentAppId) {
+            console.error('❌ [ADD_INSTRUMENT] ensureApplicationExists failed to return valid ID');
+            await SweetAlertService.error('Failed to create application details. Please try again.', 'Application Error');
+            setIsAddingInstrument(false);
+            return;
+          }
+          
+          console.log('✅ [ADD_INSTRUMENT] Application details created successfully');
+          console.log('🔧 [ADD_INSTRUMENT] New apprefId after creation:', currentAppId);
+        } catch (error) {
+          console.error('❌ [ADD_INSTRUMENT] Error in ensureApplicationExists:', error);
+          await SweetAlertService.error('Error occurred while creating application details. Please try again.', 'Application Error');
+          setIsAddingInstrument(false);
+          return;
+        }
+      } else {
+        console.log('✅ [ADD_INSTRUMENT] Application details already exist, apprefId:', currentAppId);
+      }
+
+      // Step 3: Serial Number Duplicate Check (Angular: checkInstrumentSerialNo)
+      console.log('🔧 [ADD_INSTRUMENT] ===== CHECKING DUPLICATE INSTRUMENT SERIAL NUMBER =====');
+      const serialNumberToCheck = instrumentSerialNo?.toUpperCase();
+      console.log('🔧 [ADD_INSTRUMENT] Serial number to check:', serialNumberToCheck);
+      console.log('🌐 [ADD_INSTRUMENT] Making API call to ContractorLicence/getContract_InstrumentDetails');
+      
+      const duplicateCheckResponse = await userDetailsService.validateInstrumentSerialNumber(serialNumberToCheck);
+      console.log('📡 [ADD_INSTRUMENT] ===== DUPLICATE CHECK API RESPONSE =====');
+      console.log('📡 [ADD_INSTRUMENT] Response data:', duplicateCheckResponse);
+      console.log('📡 [ADD_INSTRUMENT] formModel length:', duplicateCheckResponse.data?.formModel?.length || 0);
+      
+      if (duplicateCheckResponse.data?.formModel?.length !== 0) {
+        console.log('❌ [ADD_INSTRUMENT] Duplicate instrument serial number found!');
+        await SweetAlertService.error('This Instrument Serial Number Already Exists', 'Duplicate Serial Number');
         setIsAddingInstrument(false);
         return;
       }
 
-      // Step 3: Create Instrument Payload (Angular structure)
-      console.log('✅ [ADD_INSTRUMENT] Step 3: Creating instrument payload');
+      console.log('✅ [ADD_INSTRUMENT] No duplicate serial number found');
+      
+      // Step 4: Working Area Duplicate Check (Angular: checking instrumentsList for same type + location)
+      console.log('🔧 [ADD_INSTRUMENT] ===== CHECKING DUPLICATE INSTRUMENT WITH WORKING AREA =====');
+      console.log('🔧 [ADD_INSTRUMENT] Current instrumentsList:', instruments);
+      
+      // Get the numeric instrument type ID from the selected instrument
+      const selectedInstrumentValue = selectedInstrumentList.find(item => item.name === instrument)?.value;
+      if (!selectedInstrumentValue) {
+        console.log('❌ [ADD_INSTRUMENT] Invalid instrument selection:', instrument);
+        await SweetAlertService.error('Invalid instrument selection', 'Error');
+        setIsAddingInstrument(false);
+        return;
+      }
+      
+      const instrumentToCheck = {
+        applicationInstrumentsType: selectedInstrumentValue,
+        districtRefId: parseInt(instrumentDistrict.toString()),
+        tehsilRefId: parseInt(instrumentTehsil.toString())
+      };
+      console.log('🔧 [ADD_INSTRUMENT] Instrument to check for duplication:', instrumentToCheck);
+
+      const exists = instruments.some((item: any) =>
+        item.applicationInstrumentsType === selectedInstrumentValue &&
+        item.districtRefId === parseInt(instrumentDistrict.toString()) &&
+        item.tehsilRefId === parseInt(instrumentTehsil.toString())
+      );
+      
+      console.log('🔧 [ADD_INSTRUMENT] Duplicate instrument with working area exists:', exists);
+      
+      if (exists) {
+        console.log('❌ [ADD_INSTRUMENT] Duplicate instrument with working area found!');
+        await SweetAlertService.error('This Instrument was already added with Working Area', 'Duplicate Instrument');
+        setIsAddingInstrument(false);
+        return;
+      }
+
+      console.log('✅ [ADD_INSTRUMENT] No duplicate instrument with working area found');
+
+      // Step 5: Create Instrument Payload (Angular structure)
+      console.log('🔧 [ADD_INSTRUMENT] ===== PREPARING INSTRUMENT PAYLOAD =====');
+      console.log('🔧 [ADD_INSTRUMENT] Found instrument value:', selectedInstrumentValue, 'for name:', instrument);
+      
+      // Resolve district and tehsil names from workingAreaList (Angular logic)
+      console.log('🔧 [ADD_INSTRUMENT] Resolving district and tehsil names...');
+      console.log('🔧 [ADD_INSTRUMENT] Current workingAreaList length:', workingAreaList.length);
+      console.log('🔧 [ADD_INSTRUMENT] Looking for districtRefId:', instrumentDistrict, 'tehsilRefId:', instrumentTehsil);
+      
+      const selectedDistrict = workingAreaList.find((area: any) => 
+        area.districtRefId === parseInt(instrumentDistrict.toString())
+      );
+      const selectedTehsil = workingAreaList.find((area: any) => 
+        area.tehsilRefId === parseInt(instrumentTehsil.toString())
+      );
+      
+      console.log('🔧 [ADD_INSTRUMENT] Selected district object:', selectedDistrict);
+      console.log('🔧 [ADD_INSTRUMENT] Selected tehsil object:', selectedTehsil);
+      console.log('🔧 [ADD_INSTRUMENT] District name resolved:', selectedDistrict?.districtName || 'NOT FOUND');
+      console.log('🔧 [ADD_INSTRUMENT] Tehsil name resolved:', selectedTehsil?.tehsilName || 'NOT FOUND');
+      
       const instrumentPayload = {
         contactInstrumentId: 0,
         appRefId: currentAppId,
-        applicationInstrumentsType: parseInt(instrument) || 1,
-        instrumentSerialNo: instrumentSerialNo.trim(),
+        applicationInstrumentsType: selectedInstrumentValue,
+        instrumentSerialNo: instrumentSerialNo.toUpperCase(),
         instrumentMakeBy: instrumentMake.trim(),
         instrumentStartRange: instrumentRangeFrom.toString(),
         instrumentEndRange: instrumentRangeTo.toString(),
         applicationInstrumentRange: parseInt(instrumentRangeUnit) || 1,
         districtRefId: parseInt(instrumentDistrict.toString()) || 0,
-        districtName: "", // Will be populated by API
+        districtName: selectedDistrict?.districtName || "",
         tehsilRefId: parseInt(instrumentTehsil.toString()) || 0,
-        tehsilName: "", // Will be populated by API
+        tehsilName: selectedTehsil?.tehsilName || "",
         isActive: true,
         isDeleted: false,
         createdOnDate: new Date().toISOString(),
         lastModifiedOnDate: new Date().toISOString()
       };
 
-      console.log('📤 [ADD_INSTRUMENT] Sending instrument payload:', instrumentPayload);
+      console.log('� [ADD_INSTRUMENT] ===== FINAL INSTRUMENT PAYLOAD =====');
+      console.log('🔧 [ADD_INSTRUMENT] Raw payload object:', instrumentPayload);
+      console.log('🌐 [ADD_INSTRUMENT] Making API call to ContractorLicence/addUpdateContract_InstrumentDetails');
+      console.log('🌐 [ADD_INSTRUMENT] API endpoint: ContractorLicence/addUpdateContract_InstrumentDetails');
 
-      // Step 4: API Call
-      console.log('✅ [ADD_INSTRUMENT] Step 4: API call');
+      // Step 6: API Call (Angular: this.apiService.httpPost)
       const response = await userDetailsService.addInstrument(instrumentPayload);
 
+      console.log('📡 [ADD_INSTRUMENT] ===== ADD INSTRUMENT API RESPONSE =====');
+      console.log('📡 [ADD_INSTRUMENT] Response data:', response);
+      console.log('📡 [ADD_INSTRUMENT] Response success:', response.success);
+      console.log('📡 [ADD_INSTRUMENT] Response status: SUCCESS');
+      
       if (response.success) {
-        console.log('🎉 [ADD_INSTRUMENT] Instrument added successfully');
+        console.log('✅ [ADD_INSTRUMENT] Instrument added successfully!');
+        console.log('🔧 [ADD_INSTRUMENT] ===== POST-SUCCESS OPERATIONS =====');
         
         // Success feedback (Angular pattern)
         setSaveSuccess('Instrument details added successfully!');
 
         // Clear form (Angular pattern)
+        console.log('🔧 [ADD_INSTRUMENT] Resetting instrument form...');
         setInstrument("");
         setInstrumentSerialNo("");
         setInstrumentMake("");
@@ -1553,23 +1685,29 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         // Reset character count
         setInstrumentCharacterCount({ make: 0, serialNo: 0 });
 
-        // Refresh data (Angular pattern)
+        // Refresh data (Angular pattern: this.getContractorApplicationDetails())
+        console.log('🔧 [ADD_INSTRUMENT] Refreshing contractor application details...');
         await getContractorApplicationDetails();
+        console.log('✅ [ADD_INSTRUMENT] ===== ADD INSTRUMENT COMPLETED SUCCESSFULLY =====');
       } else {
         console.error('❌ [ADD_INSTRUMENT] API returned error:', response);
-        setSaveError(response.message || 'Failed to add instrument details. Please try again.');
+        await SweetAlertService.error('Failed to add instrument details. Please try again.', 'API Error');
       }
 
     } catch (error: any) {
-      console.error('❌ [ADD_INSTRUMENT] Unexpected error:', error);
-      setSaveError('An error occurred while adding instrument. Please try again.');
+      console.error('❌ [ADD_INSTRUMENT] ===== ADD INSTRUMENT API ERROR =====');
+      console.error('❌ [ADD_INSTRUMENT] Error response:', error);
+      console.error('❌ [ADD_INSTRUMENT] Error status:', error.status);
+      console.error('❌ [ADD_INSTRUMENT] Error message:', error.message);
+      await SweetAlertService.error('An error occurred while adding instrument. Please try again.', 'Unexpected Error');
     } finally {
       setIsAddingInstrument(false);
     }
   }, [
     instrument, instrumentSerialNo, instrumentMake, instrumentRangeFrom, instrumentRangeTo, 
     instrumentRangeUnit, instrumentDistrict, instrumentTehsil, applicationId, apprefId,
-    validateInstrumentForm, getContractorApplicationDetails
+    validateInstrumentForm, getContractorApplicationDetails, instruments, ensureApplicationExists,
+    workingAreaList, selectedInstrumentList
   ]);
 
   /**
@@ -1615,9 +1753,92 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     updateInstrumentCharacterCount();
   }, [updateInstrumentCharacterCount]);
 
-  // Handle Delete Instrument
-  const handleDeleteInstrument = (id: number) => {
-    setInstruments(instruments.filter(instrument => instrument.id !== id));
+  // ✅ FIX #3: Enhanced Delete Instrument Handler - Angular Parity Implementation
+  const handleDeleteInstrument = async (id: number) => {
+    console.log('🗑️ [DELETE_INSTRUMENT] ===== DELETE INSTRUMENT FUNCTION STARTED =====');
+    console.log('🗑️ [DELETE_INSTRUMENT] Function: removeInstrument() (Angular naming)');
+    console.log('🗑️ [DELETE_INSTRUMENT] Instrument ID to delete:', id);
+    console.log('🗑️ [DELETE_INSTRUMENT] Current instruments array:', instruments);
+    console.log('🗑️ [DELETE_INSTRUMENT] Instruments count:', instruments.length);
+    
+    const instrumentToDelete = instruments.find(i => i.id === id);
+    if (!instrumentToDelete) {
+      console.log('❌ [DELETE_INSTRUMENT] Instrument not found with id:', id);
+      console.log('❌ [DELETE_INSTRUMENT] Available instrument IDs:', instruments.map(i => i.id));
+      await SweetAlertService.error('Instrument not found', 'Error');
+      return;
+    }
+
+    console.log('🗑️ [DELETE_INSTRUMENT] Found instrument to delete:', instrumentToDelete);
+    console.log('🗑️ [DELETE_INSTRUMENT] Instrument details:');
+    console.log('🗑️ [DELETE_INSTRUMENT] - ID:', instrumentToDelete.id);
+    console.log('🗑️ [DELETE_INSTRUMENT] - contactInstrumentId:', instrumentToDelete.contactInstrumentId);
+    console.log('🗑️ [DELETE_INSTRUMENT] - Type:', instrumentToDelete.instrumentType);
+    console.log('🗑️ [DELETE_INSTRUMENT] - Serial No:', instrumentToDelete.instrumentSerialNo);
+    console.log('🗑️ [DELETE_INSTRUMENT] - Make:', instrumentToDelete.instrumentMake);
+
+    try {
+      // Step 1: Confirmation dialog (Angular: SweetAlert confirmation)
+      console.log('🗑️ [DELETE_INSTRUMENT] Showing confirmation dialog');
+      const confirmResult = await SweetAlertService.confirmDelete(
+        `Instrument "${instrumentToDelete.instrumentType}" (${instrumentToDelete.instrumentSerialNo})`,
+        `Are you sure you want to delete this instrument? This action cannot be undone.`
+      );
+      
+      if (confirmResult.isConfirmed) {
+        console.log('✅ [DELETE_INSTRUMENT] User confirmed deletion');
+        
+        // Step 2: API call if this is an existing instrument (has contactInstrumentId)
+        if (instrumentToDelete.contactInstrumentId && typeof instrumentToDelete.contactInstrumentId === 'number' && instrumentToDelete.contactInstrumentId > 0) {
+          console.log('🔄 [DELETE_INSTRUMENT] Calling delete API for existing instrument');
+          console.log('🔄 [DELETE_INSTRUMENT] contactInstrumentId:', instrumentToDelete.contactInstrumentId);
+          console.log('🔄 [DELETE_INSTRUMENT] API call: userDetailsService.deleteInstrument()');
+          console.log('🔄 [DELETE_INSTRUMENT] ===== MAKING DELETE API CALL =====');
+          
+          try {
+            // Call Angular-equivalent delete API
+            const result = await userDetailsService.deleteInstrument(instrumentToDelete.contactInstrumentId);
+            
+            console.log('✅ [DELETE_INSTRUMENT] ===== DELETE API RESPONSE =====');
+            console.log('✅ [DELETE_INSTRUMENT] API call completed');
+            console.log('✅ [DELETE_INSTRUMENT] Response:', result);
+            console.log('✅ [DELETE_INSTRUMENT] Response success:', result?.success);
+            console.log('✅ [DELETE_INSTRUMENT] Response data:', result?.data);
+            
+            if (result?.success || result) {
+              console.log('✅ [DELETE_INSTRUMENT] Instrument deleted from database successfully');
+              await SweetAlertService.success('Instrument has been deleted successfully!', 'Deleted!');
+            } else {
+              await SweetAlertService.error('Failed to delete instrument from database. Please try again.', 'Deletion Failed');
+              return;
+            }
+          } catch (error: any) {
+            console.error('❌ [DELETE_INSTRUMENT] API deletion failed:', error);
+            await SweetAlertService.error('Error occurred while deleting instrument. Please try again.', 'Error');
+            return;
+          }
+        } else {
+          console.log('🔄 [DELETE_INSTRUMENT] Local instrument - no API call needed');
+        }
+        
+        // Step 3: Remove from local state
+        console.log('🔄 [DELETE_INSTRUMENT] Removing instrument from local state');
+        setInstruments(instruments.filter(instrument => instrument.id !== id));
+        
+        // Step 4: Refresh data if available (Angular: getContractorApplicationDetails())
+        if (getContractorApplicationDetails) {
+          console.log('🔄 [DELETE_INSTRUMENT] Refreshing contractor application details');
+          await getContractorApplicationDetails();
+        }
+        
+        console.log('✅ [DELETE_INSTRUMENT] ===== INSTRUMENT DELETION PROCESS COMPLETED =====');
+      } else {
+        console.log('❌ [DELETE_INSTRUMENT] User cancelled deletion');
+      }
+    } catch (error: any) {
+      console.error('❌ [DELETE_INSTRUMENT] Exception during deletion:', error);
+      await SweetAlertService.error('An error occurred during the deletion process.', 'Error');
+    }
   };
 
   // Handle Delete Partner - Enhanced Angular Parity
@@ -1643,8 +1864,17 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       if (confirmResult.isConfirmed) {
         console.log('✅ [DELETE_PARTNER] User confirmed deletion');
         
-        // If this is an existing partner (has database ID), call API
-        if (partnerToDelete.id && typeof partnerToDelete.id === 'number' && partnerToDelete.id > 100) {
+        // Check if this is a partner that exists in database (has real contactPartnershipId)
+        // Angular logic: Only delete from database if partner was previously saved
+        const isExistingPartner = partnerToDelete.id && typeof partnerToDelete.id === 'number' && 
+                                  !Number.isNaN(partnerToDelete.id) && partnerToDelete.id > 0;
+        
+        // ✅ CRITICAL FIX: Don't use arbitrary ID threshold (100), check if it's a real backend ID
+        // Backend partners have contactPartnershipId from database
+        // Temporary partners (just added) have Date.now() IDs which are very large numbers
+        const isBackendPartner = isExistingPartner && partnerToDelete.id < 9999999999999; // Date.now() IDs are 13 digits
+        
+        if (isBackendPartner) {
           console.log('🔄 [DELETE_PARTNER] Calling API to delete existing partner');
           
           try {
@@ -1718,6 +1948,64 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     setPanNo(value);
     // Real-time character count update like Angular
     setPartnerCharacterCount(prev => ({ ...prev, panNo: value?.length || 0 }));
+  }, []);
+
+  // ✅ FIX #5: Instrument Form Change Handlers with Real-time Character Count & Validation (Angular parity)
+  // These handlers update both the field value and character count, plus handle real-time validation like Angular
+
+  const handleInstrumentSerialNoChange = useCallback((value: string) => {
+    console.log('📝 [INSTRUMENT-CHAR-COUNT] Instrument serial number changed:', value);
+    setInstrumentSerialNo(value);
+    // Real-time character count update like Angular
+    setInstrumentCharacterCount(prev => ({ ...prev, serialNo: value?.length || 0 }));
+  }, []);
+
+  const handleInstrumentSerialNoBlur = useCallback(async (value: string) => {
+    console.log('🔍 [INSTRUMENT-VALIDATION] ===== SERIAL NUMBER BLUR VALIDATION =====');
+    console.log('🔍 [INSTRUMENT-VALIDATION] Function: checkInstrumentSerialNo() (Angular naming)');
+    console.log('🔍 [INSTRUMENT-VALIDATION] Serial number to validate:', value);
+    
+    if (!value || value.trim().length === 0) {
+      console.log('🔍 [INSTRUMENT-VALIDATION] Empty serial number - skipping validation');
+      return;
+    }
+
+    const serialToCheck = value.toUpperCase().trim();
+    console.log('🔍 [INSTRUMENT-VALIDATION] Formatted serial number:', serialToCheck);
+    
+    try {
+      console.log('🔍 [INSTRUMENT-VALIDATION] Making API call to validate uniqueness');
+      const response = await userDetailsService.validateInstrumentSerialNumber(serialToCheck);
+      
+      console.log('📥 [INSTRUMENT-VALIDATION] API response received:', response);
+      console.log('📥 [INSTRUMENT-VALIDATION] Response data:', response.data);
+      console.log('📥 [INSTRUMENT-VALIDATION] FormModel exists:', response.data?.formModel?.length !== 0);
+
+      // Angular logic: if formModel.length !== 0, serial number exists
+      if (response.data?.formModel?.length !== 0) {
+        console.log('❌ [INSTRUMENT-VALIDATION] Duplicate serial number found');
+        setInstrumentFormErrors(prev => ({
+          ...prev,
+          serialNo: `Instrument with serial number ${serialToCheck} already exists`
+        }));
+      } else {
+        console.log('✅ [INSTRUMENT-VALIDATION] Serial number is unique');
+        setInstrumentFormErrors(prev => ({
+          ...prev,
+          serialNo: undefined
+        }));
+      }
+    } catch (error: any) {
+      console.error('❌ [INSTRUMENT-VALIDATION] Serial number validation failed:', error);
+      // Don't show error to user for validation failures - just log
+    }
+  }, []);
+
+  const handleInstrumentMakeChange = useCallback((value: string) => {
+    console.log('📝 [INSTRUMENT-CHAR-COUNT] Instrument make changed:', value);
+    setInstrumentMake(value);
+    // Real-time character count update like Angular (max 100 chars)
+    setInstrumentCharacterCount(prev => ({ ...prev, make: value?.length || 0 }));
   }, []);
 
   return {
@@ -1833,6 +2121,11 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     handlePartnerEmailChange,
     handlePartnerContactNumberChange,
     handlePartnerPanNoChange,
+
+    // ✅ FIX #5: Instrument Form Change Handlers with Character Count & Validation (Angular parity)
+    handleInstrumentSerialNoChange,
+    handleInstrumentSerialNoBlur,
+    handleInstrumentMakeChange,
 
     // Validation functions
     validateWorkingAreaForm,

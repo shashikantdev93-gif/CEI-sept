@@ -63,7 +63,8 @@ export interface ApplicationActionResponse {
 
 
 export interface Instrument {
-  id: number;
+  id: number;                                   // React local ID
+  contactInstrumentId?: number;                 // ✅ Angular database ID for API calls
   instrumentType: string;
   instrumentSerialNo: string;
   instrumentMake: string;
@@ -71,6 +72,16 @@ export interface Instrument {
   district: string;
   tehsil: string;
   action: string;
+  // ✅ Additional Angular fields for complete compatibility
+  applicationInstrumentsType?: number;          // Angular instrument type ID
+  instrumentMakeBy?: string;                    // Angular field name
+  instrumentStartRange?: string;                // Angular range start
+  instrumentEndRange?: string;                  // Angular range end
+  applicationInstrumentRange?: number;          // Angular range unit ID
+  districtRefId?: number;                       // Angular district ID
+  tehsilRefId?: number;                         // Angular tehsil ID
+  districtName?: string;                        // Angular district name
+  tehsilName?: string;                          // Angular tehsil name
 }
 
 export interface Partner {
