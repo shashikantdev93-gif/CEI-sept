@@ -47,6 +47,71 @@ static email(value: string): ValidationResult {
     return { isValid: true };
   }
 
+  // Supervisor/Wireman specific validators
+  static pan(value: string): ValidationResult {
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!panRegex.test(value.toUpperCase())) {
+      return {
+        isValid: false,
+        error: 'Please enter a valid PAN number (e.g., ABCDE1234F)',
+      };
+    }
+    return { isValid: true };
+  }
+
+  static supervisorName(value: string): ValidationResult {
+    const nameRegex = /^[a-zA-Z\s]*$/;
+    if (!nameRegex.test(value)) {
+      return {
+        isValid: false,
+        error: 'Name should contain only alphabets and spaces',
+      };
+    }
+    return { isValid: true };
+  }
+
+  static licenceNumber(value: string): ValidationResult {
+    const licenceRegex = /^[a-zA-Z0-9\s\-\/]*$/;
+    if (!licenceRegex.test(value)) {
+      return {
+        isValid: false,
+        error: 'Licence number contains invalid characters',
+      };
+    }
+    return { isValid: true };
+  }
+
+  static futureDate(value: string): ValidationResult {
+    if (!value) {
+      return {
+        isValid: false,
+        error: 'This field is required',
+      };
+    }
+    
+    const validDate = new Date(value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (validDate <= today) {
+      return {
+        isValid: false,
+        error: 'Date should be in the future',
+      };
+    }
+    return { isValid: true };
+  }
+
+  static dropdownSelection(value: string): ValidationResult {
+    if (!value || value === '') {
+      return {
+        isValid: false,
+        error: 'Please make a selection',
+      };
+    }
+    return { isValid: true };
+  }
+
 static noSpaces(value: string): ValidationResult {
     const hasSpace = /\s/.test(value);
     if (hasSpace) {

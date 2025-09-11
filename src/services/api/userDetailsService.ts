@@ -48,13 +48,44 @@ interface UserDetailsPayload {
   commuPinCode: number;
   applicationCategoryUserType: number;
   isActive: boolean;
-  isDelete: boolean;
-  createdOnDate: string;
-  lastModifiedOnDate: string;
-  userRefId: number;
 }
 
-interface OTPResponse {
+// Supervisor/Wireman API Interfaces
+interface SupervisorAPIResponse {
+  formModel: Array<{
+    id: number;
+    userProfile: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    licenceValidOnUpToDate: string;
+    application: {
+      projectSites: {
+        applicantPanNumber: string;
+      };
+    };
+  }>;
+}
+
+interface WiremanAPIResponse {
+  formModel: Array<{
+    id: number;
+    userProfile: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    licenceValidOnUpToDate: string;
+    application: {
+      projectSites: {
+        applicantPanNumber: string;
+      };
+    };
+  }>;
+}
+
+export interface OTPResponse {
   success: boolean;
   result?: string;
   message?: string;
@@ -107,7 +138,7 @@ export interface ContractorApplicationResponse {
   success: boolean;
   message: string;
   data?: {
-    appRefId: number;               // ← Changed from applicationId to appRefId
+    appRefId: number;              
     contractorApplicationId: number;
     applicant_name: string;
     address: string;
@@ -537,6 +568,238 @@ export const userDetailsService = {
     }
   },
 
-  
+  // Supervisor certificate validation methods
+  async getSupervisorDetails_ByLicenceNo(licenceNo: string): Promise<ApiResponse<SupervisorAPIResponse>> {
+    console.log('🏆 [USER-SERVICE] Getting supervisor details by licence number:', licenceNo);
+    console.log('🏆 [USER-SERVICE] API endpoint: /SupervisorLicence/getSupervisorDetails_ByLicenceNo');
+    console.log('🏆 [USER-SERVICE] HTTP method: GET (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<SupervisorAPIResponse>(
+        `/SupervisorLicence/getSupervisorDetails_ByLicenceNo`,
+        {
+          params: { licenceNo }
+        }
+      );
+
+      console.log('✅ [USER-SERVICE] Supervisor details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error getting supervisor details:', error);
+      throw error;
+    }
+  },
+
+  async getSuperBacklogDetailsByLicenceNo(licenceNo: string): Promise<ApiResponse<any>> {
+    console.log('🏆 [USER-SERVICE] Getting supervisor backlog details by licence number:', licenceNo);
+    console.log('🏆 [USER-SERVICE] API endpoint: /SupervisorLicence/getSuperBacklogDetailsByLicenceNo');
+    console.log('🏆 [USER-SERVICE] HTTP method: GET (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/SupervisorLicence/getSuperBacklogDetailsByLicenceNo`,
+        {
+          params: { LicenceNo: licenceNo }
+        }
+      );
+
+      console.log('✅ [USER-SERVICE] Supervisor backlog details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error getting supervisor backlog details:', error);
+      throw error;
+    }
+  },
+
+  // Wireman permit validation methods
+  async getWiremanDetails_ByLicenceNo(licenceNo: string): Promise<ApiResponse<WiremanAPIResponse>> {
+    console.log('⚡ [USER-SERVICE] Getting wireman details by licence number:', licenceNo);
+    console.log('⚡ [USER-SERVICE] API endpoint: /WiremanLicence/getWiremanDetails_ByLicenceNo');
+    console.log('⚡ [USER-SERVICE] HTTP method: GET (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<WiremanAPIResponse>(
+        `/WiremanLicence/getWiremanDetails_ByLicenceNo`,
+        {
+          params: { licenceNo }
+        }
+      );
+
+      console.log('✅ [USER-SERVICE] Wireman details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error getting wireman details:', error);
+      throw error;
+    }
+  },
+
+  async getWireBacklogDetailsByLicenceNo(licenceNo: string): Promise<ApiResponse<any>> {
+    console.log('⚡ [USER-SERVICE] Getting wireman backlog details by licence number:', licenceNo);
+    console.log('⚡ [USER-SERVICE] API endpoint: /WiremanLicence/getWireBacklogDetailsByLicenceNo');
+    console.log('⚡ [USER-SERVICE] HTTP method: GET (Angular parity)');
+
+    try {
+      const response = await axiosInterceptor.get<any>(
+        `/WiremanLicence/getWireBacklogDetailsByLicenceNo`,
+        {
+          params: { LicenceNo: licenceNo }
+        }
+      );
+
+      console.log('✅ [USER-SERVICE] Wireman backlog details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error getting wireman backlog details:', error);
+      throw error;
+    }
+  },
+
+  // ====================
+  // CRITICAL MISSING APIs - Angular Parity
+  // ====================
+
+  /**
+   * Get contractor worker details by appRefId
+   * Angular: ContractorLicence/getContractorWorkerDetails_ById
+   */
+  async getContractorWorkerDetails(appRefId: number): Promise<ApiResponse<any>> {
+    try {
+      console.log('🔍 [USER-SERVICE] Getting contractor worker details for appRefId:', appRefId);
+      
+      const response = await axiosInterceptor.get(`/ContractorLicence/getContractorWorkerDetails_ById?id=${appRefId}`);
+      
+      console.log('✅ [USER-SERVICE] Contractor worker details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error getting contractor worker details:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add/Update contractor supervisor
+   * Angular: ContractorLicence/addUpdateContractSupervisor_BacklogDetails
+   */
+  async addUpdateContractSupervisor(payload: any): Promise<ApiResponse<any>> {
+    try {
+      console.log('🏗️ [USER-SERVICE] Adding/updating contractor supervisor:', payload);
+      
+      const response = await axiosInterceptor.post('/ContractorLicence/addUpdateContractSupervisor_BacklogDetails', payload);
+      
+      console.log('✅ [USER-SERVICE] Supervisor add/update response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error adding/updating supervisor:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add/Update contractor wireman
+   * Angular: ContractorLicence/addUpdateContractWireman_BacklogDetails
+   */
+  async addUpdateContractWireman(payload: any): Promise<ApiResponse<any>> {
+    try {
+      console.log('🏗️ [USER-SERVICE] Adding/updating contractor wireman:', payload);
+      
+      const response = await axiosInterceptor.post('/ContractorLicence/addUpdateContractWireman_BacklogDetails', payload);
+      
+      console.log('✅ [USER-SERVICE] Wireman add/update response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error adding/updating wireman:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete contractor supervisor
+   * Angular: ContractorLicence/deleteContractSupervisorBacklog_ById
+   */
+  async deleteContractSupervisor(id: number): Promise<ApiResponse<any>> {
+    try {
+      console.log('🗑️ [USER-SERVICE] Deleting contractor supervisor with id:', id);
+      
+      const response = await axiosInterceptor.get(`/ContractorLicence/deleteContractSupervisorBacklog_ById?id=${id}`);
+      
+      console.log('✅ [USER-SERVICE] Supervisor delete response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error deleting supervisor:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete contractor wireman
+   * Angular: ContractorLicence/deleteContractWiremanBacklog_ById
+   */
+  async deleteContractWireman(id: number): Promise<ApiResponse<any>> {
+    try {
+      console.log('🗑️ [USER-SERVICE] Deleting contractor wireman with id:', id);
+      
+      const response = await axiosInterceptor.get(`/ContractorLicence/deleteContractWiremanBacklog_ById?id=${id}`);
+      
+      console.log('✅ [USER-SERVICE] Wireman delete response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error deleting wireman:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add/Update application details
+   * Angular: Application/addUpdate_ApplicationDetails
+   */
+  async addUpdateApplicationDetails(payload: any): Promise<ApiResponse<any>> {
+    try {
+      console.log('📋 [USER-SERVICE] Adding/updating application details:', payload);
+      
+      const response = await axiosInterceptor.post('/Application/addUpdate_ApplicationDetails', payload);
+      
+      console.log('✅ [USER-SERVICE] Application details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error with application details:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add/Update application action
+   * Angular: Application/addUpdate_ApplicationAction
+   */
+  async addUpdateApplicationAction(payload: any): Promise<ApiResponse<any>> {
+    try {
+      console.log('🎬 [USER-SERVICE] Adding/updating application action:', payload);
+      
+      const response = await axiosInterceptor.post('/Application/addUpdate_ApplicationAction', payload);
+      
+      console.log('✅ [USER-SERVICE] Application action response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error with application action:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Save contractor application (Angular Save & Next Primary API)
+   * Angular: ContractorLicence/addUpdateContractApplication_GeneralDetails
+   */
+  async saveContractorApplicationGeneralDetails(payload: any): Promise<ApiResponse<any>> {
+    try {
+      console.log('🏗️ [USER-SERVICE] Saving contractor application general details:', payload);
+      
+      const response = await axiosInterceptor.post('/ContractorLicence/addUpdateContractApplication_GeneralDetails', payload);
+      
+      console.log('✅ [USER-SERVICE] Contractor application general details response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [USER-SERVICE] Error saving contractor application general details:', error);
+      throw error;
+    }
+  }
   
 };

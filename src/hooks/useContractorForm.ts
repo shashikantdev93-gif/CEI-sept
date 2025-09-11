@@ -23,6 +23,10 @@ import { useProjectSiteAPI } from './useProjectSiteAPI';
 import { getInstrumentTypeName, getContractorTypeName, getVoltageTypeName, getRangeUnitName } from '../utils/enumMappings';
 
 export const useContractorForm = (draftApplicationId?: number | null) => {
+  console.log('🎯 [CONTRACTOR-FORM-HOOK] ===== HOOK INITIALIZATION =====');
+  console.log('🎯 [CONTRACTOR-FORM-HOOK] draftApplicationId passed to hook:', draftApplicationId);
+  console.log('🎯 [CONTRACTOR-FORM-HOOK] ====================================');
+  
   // Basic Form State
   const [applicant_name, setApplicantName] = useState(""); 
   const [address, setAddress] = useState("");
@@ -215,6 +219,82 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         setPanCardNumber(contractorData.applicantPAN);
         console.log('✅ [CONTRACTOR-FORM] Applicant PAN auto-filled:', contractorData.applicantPAN);
       }
+
+      // ✅ NEW: Extract contractor general details from project site data (PRIMARY SOURCE)
+      console.log('🎯 [CONTRACTOR-FORM] Checking for contractor general details in project site data...');
+      console.log('📊 [CONTRACTOR-FORM] Full project site data structure:', data);
+      
+      if (data.applications && data.applications.length > 0) {
+        const application = data.applications[0];
+        console.log('📊 [CONTRACTOR-FORM] Found application in project site data:', application);
+        
+        if (application.contractorLicence_GeneralDetails) {
+          const generalDetails = application.contractorLicence_GeneralDetails;
+          console.log('✅ [CONTRACTOR-FORM] Found contractor general details in project site data!');
+          console.log('📋 [CONTRACTOR-FORM] General details:', generalDetails);
+          
+          // Populate contractor type dropdown
+          if (generalDetails.applicationContractorType !== undefined && generalDetails.applicationContractorType !== null) {
+            const contractorTypeString = getContractorTypeName(generalDetails.applicationContractorType);
+            console.log('🎯 [CONTRACTOR-FORM] Setting contractor type from project site data:', contractorTypeString);
+            setContractorType(contractorTypeString);
+          }
+          
+          // Populate working voltage dropdown  
+          if (generalDetails.applicationWorkingVoltageType !== undefined && generalDetails.applicationWorkingVoltageType !== null) {
+            const voltageTypeString = getVoltageTypeName(generalDetails.applicationWorkingVoltageType);
+            console.log('⚡ [CONTRACTOR-FORM] Setting working voltage from project site data:', voltageTypeString);
+            setCurrentWorkingVoltage(voltageTypeString);
+            
+            // Set appropriate instrument list based on voltage type
+            if (generalDetails.applicationWorkingVoltageType === 1) {
+              setSelectedInstrumentList(INSTRUMENT_LISTS.lowMediumVoltage);
+              console.log('🔧 [CONTRACTOR-FORM] Set instrument list to: Low/Medium Voltage (from project site)');
+            } else if (generalDetails.applicationWorkingVoltageType === 2) {
+              setSelectedInstrumentList(INSTRUMENT_LISTS.highVoltage);
+              console.log('🔧 [CONTRACTOR-FORM] Set instrument list to: High Voltage (from project site)');
+            } else if (generalDetails.applicationWorkingVoltageType === 3) {
+              setSelectedInstrumentList(INSTRUMENT_LISTS.extraHighVoltage);
+              console.log('🔧 [CONTRACTOR-FORM] Set instrument list to: Extra High Voltage (from project site)');
+            }
+          }
+          
+          // Populate business entity fields
+          if (generalDetails.nameOfSigneeOfCompany) {
+            setSigneeNameOnBehalfOfCompany(generalDetails.nameOfSigneeOfCompany);
+            console.log('📝 [CONTRACTOR-FORM] Set signee name from project site data:', generalDetails.nameOfSigneeOfCompany);
+          }
+          
+          if (generalDetails.businessEntity) {
+            setBusinessEntity(generalDetails.businessEntity);
+            console.log('🏢 [CONTRACTOR-FORM] Set business entity from project site data:', generalDetails.businessEntity);
+          }
+          
+          if (generalDetails.businessEntityAddress) {
+            setBusinessEntityAddress(generalDetails.businessEntityAddress);
+            console.log('🏢 [CONTRACTOR-FORM] Set business entity address from project site data:', generalDetails.businessEntityAddress);
+          }
+          
+          console.log('✅ [CONTRACTOR-FORM] All contractor fields populated from project site data!');
+          console.log('🔒 [CONTRACTOR-FORM] Fields are now protected from override by contractor API due to project site precedence');
+          
+          // Debug state verification after setting
+          setTimeout(() => {
+            console.log('🧪 [CONTRACTOR-FORM] ===== PROJECT SITE STATE VERIFICATION =====');
+            console.log('🧪 [CONTRACTOR-FORM] contractorType after project site load:', contractorType);
+            console.log('🧪 [CONTRACTOR-FORM] currentWorkingVoltage after project site load:', currentWorkingVoltage);
+            console.log('🧪 [CONTRACTOR-FORM] signeeNameOnBehalfOfCompany after project site load:', signeeNameOnBehalfOfCompany);
+            console.log('🧪 [CONTRACTOR-FORM] businessEntity after project site load:', businessEntity);
+            console.log('🧪 [CONTRACTOR-FORM] businessEntityAddress after project site load:', businessEntityAddress);
+            console.log('🧪 [CONTRACTOR-FORM] ================================================');
+          }, 100);
+          
+        } else {
+          console.log('ℹ️ [CONTRACTOR-FORM] No contractor general details found in project site data');
+        }
+      } else {
+        console.log('ℹ️ [CONTRACTOR-FORM] No applications found in project site data');
+      }
     },
     onError: (error) => {
       console.error('❌ [CONTRACTOR-FORM] Error loading project site data:', error);
@@ -348,19 +428,35 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       
       const response = await userDetailsService.getContractorApplicationDetailsById(currentAppId);
       
-      console.log('� [CONTRACTOR-FORM] Raw API response:');
-      console.log('📥 [CONTRACTOR-FORM] - Success:', response.success);
-      console.log('📥 [CONTRACTOR-FORM] - Data structure:', response.data ? Object.keys(response.data) : 'No data');
-      console.log('📥 [CONTRACTOR-FORM] - FormModel length:', response.data?.formModel?.length || 0);
+      console.log('📥 [CONTRACTOR-FORM] ===== RAW API RESPONSE ANALYSIS =====');
+      console.log('📥 [CONTRACTOR-FORM] - Response object type:', typeof response);
+      console.log('📥 [CONTRACTOR-FORM] - Response exists:', !!response);
+      console.log('📥 [CONTRACTOR-FORM] - Success property:', response?.success);
+      console.log('📥 [CONTRACTOR-FORM] - Success type:', typeof response?.success);
+      console.log('📥 [CONTRACTOR-FORM] - Data exists:', !!response?.data);
+      console.log('📥 [CONTRACTOR-FORM] - Data structure:', response?.data ? Object.keys(response.data) : 'No data');
+      console.log('📥 [CONTRACTOR-FORM] - FormModel exists:', !!response?.data?.formModel);
+      console.log('📥 [CONTRACTOR-FORM] - FormModel length:', response?.data?.formModel?.length || 0);
+      console.log('📥 [CONTRACTOR-FORM] - FormModel[0] exists:', !!response?.data?.formModel?.[0]);
+      console.log('📥 [CONTRACTOR-FORM] - FULL RESPONSE OBJECT:', response);
+      console.log('📥 [CONTRACTOR-FORM] ==========================================');
       
-      if (response.success && response.data?.formModel?.[0]) {
+      if (response && response.success && response.data?.formModel?.[0]) {
+        console.log('✅ [CONTRACTOR-FORM] Response validation passed, processing data...');
         const contractorData = response.data.formModel[0];
         
         console.log('✅ [CONTRACTOR-FORM] Contractor data received for appId:', currentAppId);
-        console.log('📊 [CONTRACTOR-FORM] Data contains:');
+        console.log('📊 [CONTRACTOR-FORM] FULL CONTRACT DATA STRUCTURE:');
+        console.log('📊 [CONTRACTOR-FORM] - contractorData keys:', Object.keys(contractorData));
         console.log('📊 [CONTRACTOR-FORM] - Working Areas:', contractorData.applicationTehsilLevelUserWorking?.length || 0);
         console.log('📊 [CONTRACTOR-FORM] - Instruments:', contractorData.applicationInstrumentalDetail?.length || 0);
         console.log('📊 [CONTRACTOR-FORM] - Partners:', contractorData.contractorPartnership_GeneralDetails?.length || 0);
+        console.log('📊 [CONTRACTOR-FORM] - contractorLicence_GeneralDetails exists:', !!contractorData.contractorLicence_GeneralDetails);
+        
+        if (contractorData.contractorLicence_GeneralDetails) {
+          console.log('📊 [CONTRACTOR-FORM] - General Details Keys:', Object.keys(contractorData.contractorLicence_GeneralDetails));
+          console.log('📊 [CONTRACTOR-FORM] - FULL General Details Object:', contractorData.contractorLicence_GeneralDetails);
+        }
         
         // Map Working Areas (exact Angular logic)
         const workingAreasData = contractorData.applicationTehsilLevelUserWorking || [];
@@ -424,39 +520,186 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         setPartners(mappedPartners);
         console.log('✅ [CONTRACTOR-FORM] Partners mapped:', mappedPartners.length, 'items');
         
-        // Populate form fields from contractor general details
+        // ✅ CRITICAL: Populate form fields from contractor general details (EXACT Angular logic)
+        // Angular: this.applicantDetailsForm.patchValue({ applicationContractorType: ..., applicationWorkingVoltageType: ... })
         if (contractorData.contractorLicence_GeneralDetails) {
           const generalDetails = contractorData.contractorLicence_GeneralDetails;
           
-          // Map contractor type from number to string
-          if (generalDetails.applicationContractorType !== undefined) {
+          console.log('📋 [CONTRACTOR-FORM] ===== POPULATING DROPDOWN VALUES (Angular Parity) =====');
+          console.log('📋 [CONTRACTOR-FORM] General Details:', generalDetails);
+          console.log('📋 [CONTRACTOR-FORM] Raw applicationContractorType:', generalDetails.applicationContractorType);
+          console.log('📋 [CONTRACTOR-FORM] Raw applicationWorkingVoltageType:', generalDetails.applicationWorkingVoltageType);
+          
+          // ✅ CONTRACTOR TYPE POPULATION (Angular: applicationContractorType.toString())
+          // Only populate if not already set from project site data
+          if (generalDetails.applicationContractorType !== undefined && generalDetails.applicationContractorType !== null) {
             const contractorTypeString = getContractorTypeName(generalDetails.applicationContractorType);
-            setContractorType(contractorTypeString);
-            console.log('✅ [CONTRACTOR-FORM] Mapped Contractor Type:', generalDetails.applicationContractorType, '->', contractorTypeString);
+            console.log('🎯 [CONTRACTOR-FORM] ===== CONTRACTOR TYPE SETTING (CONTRACTOR API) =====');
+            console.log('🎯 [CONTRACTOR-FORM] Current contractorType value:', contractorType);
+            console.log('🎯 [CONTRACTOR-FORM] Raw value from API:', generalDetails.applicationContractorType);
+            console.log('🎯 [CONTRACTOR-FORM] Mapped string value:', contractorTypeString);
+            
+            if (!contractorType || contractorType === "") {
+              console.log('🎯 [CONTRACTOR-FORM] Setting contractor type from contractor API (not set from project site)...');
+              setContractorType(contractorTypeString);
+            } else {
+              console.log('🎯 [CONTRACTOR-FORM] Contractor type already set from project site, skipping override');
+            }
+            
+            console.log('🎯 [CONTRACTOR-FORM] setContractorType called successfully');
+            console.log('🎯 [CONTRACTOR-FORM] ===================================');
+            
+            // ✅ CRITICAL: Trigger partner section visibility (Angular: this.showShareHolderForm = ['5', '4', '2'].includes(this.contractorType))
+            console.log('👥 [CONTRACTOR-FORM] Contractor type set, partner section logic will recalculate automatically');
+          } else {
+            console.log('⚠️ [CONTRACTOR-FORM] No contractor type found in API response');
+            console.log('⚠️ [CONTRACTOR-FORM] applicationContractorType value:', generalDetails.applicationContractorType);
           }
           
-          // Map voltage type from number to string
-          if (generalDetails.applicationWorkingVoltageType !== undefined) {
+          // ✅ WORKING VOLTAGE POPULATION (Angular: applicationWorkingVoltageType.toString())
+          // Only populate if not already set from project site data
+          if (generalDetails.applicationWorkingVoltageType !== undefined && generalDetails.applicationWorkingVoltageType !== null) {
             const voltageTypeString = getVoltageTypeName(generalDetails.applicationWorkingVoltageType);
-            setCurrentWorkingVoltage(voltageTypeString);
-            console.log('✅ [CONTRACTOR-FORM] Mapped Working Voltage:', generalDetails.applicationWorkingVoltageType, '->', voltageTypeString);
+            console.log('⚡ [CONTRACTOR-FORM] ===== WORKING VOLTAGE SETTING (CONTRACTOR API) =====');
+            console.log('⚡ [CONTRACTOR-FORM] Current currentWorkingVoltage value:', currentWorkingVoltage);
+            console.log('⚡ [CONTRACTOR-FORM] Raw value from API:', generalDetails.applicationWorkingVoltageType);
+            console.log('⚡ [CONTRACTOR-FORM] Mapped string value:', voltageTypeString);
+            
+            if (!currentWorkingVoltage || currentWorkingVoltage === "") {
+              console.log('⚡ [CONTRACTOR-FORM] Setting working voltage from contractor API (not set from project site)...');
+              setCurrentWorkingVoltage(voltageTypeString);
+              
+              console.log('⚡ [CONTRACTOR-FORM] setCurrentWorkingVoltage called successfully');
+              
+              // ✅ CRITICAL: Trigger instrument list population (Angular: this.selectedInstrumentList = allInstrumentsList?.lowMediumVoltage)
+              console.log('🔧 [CONTRACTOR-FORM] Updating selectedInstrumentList based on voltage type...');
+              if (generalDetails.applicationWorkingVoltageType === 1) {
+                setSelectedInstrumentList(INSTRUMENT_LISTS.lowMediumVoltage);
+                console.log('🔧 [CONTRACTOR-FORM] Set instrument list to: Low/Medium Voltage');
+              } else if (generalDetails.applicationWorkingVoltageType === 2) {
+                setSelectedInstrumentList(INSTRUMENT_LISTS.highVoltage);
+                console.log('🔧 [CONTRACTOR-FORM] Set instrument list to: High Voltage');
+              } else if (generalDetails.applicationWorkingVoltageType === 3) {
+                setSelectedInstrumentList(INSTRUMENT_LISTS.extraHighVoltage);
+                console.log('🔧 [CONTRACTOR-FORM] Set instrument list to: Extra High Voltage');
+              }
+            } else {
+              console.log('⚡ [CONTRACTOR-FORM] Working voltage already set from project site, skipping override');
+            }
+            console.log('⚡ [CONTRACTOR-FORM] ======================================');
+          } else {
+            console.log('⚠️ [CONTRACTOR-FORM] No working voltage type found in API response');
           }
           
-          // Map other contractor details
+          // ✅ OTHER CONTRACTOR DETAILS (Angular: nameOfSigneeOfCompany, businessEntity, businessEntityAddress)
+          // Only populate if not already set from project site data
+          console.log('📝 [CONTRACTOR-FORM] ===== BUSINESS ENTITY FIELDS (CONTRACTOR API) =====');
+          
           if (generalDetails.nameOfSigneeOfCompany) {
-            setSigneeNameOnBehalfOfCompany(generalDetails.nameOfSigneeOfCompany);
-            console.log('✅ [CONTRACTOR-FORM] Mapped Signee Name:', generalDetails.nameOfSigneeOfCompany);
+            if (!signeeNameOnBehalfOfCompany || signeeNameOnBehalfOfCompany === "") {
+              console.log('📝 [CONTRACTOR-FORM] Setting signee name from contractor API (not set from project site)...');
+              setSigneeNameOnBehalfOfCompany(generalDetails.nameOfSigneeOfCompany);
+              console.log('📝 [CONTRACTOR-FORM] Set Signee Name:', generalDetails.nameOfSigneeOfCompany);
+            } else {
+              console.log('📝 [CONTRACTOR-FORM] Signee name already set from project site, skipping override');
+            }
           }
           
           if (generalDetails.businessEntity) {
-            setBusinessEntity(generalDetails.businessEntity);
-            console.log('✅ [CONTRACTOR-FORM] Mapped Business Entity:', generalDetails.businessEntity);
+            if (!businessEntity || businessEntity === "") {
+              console.log('🏢 [CONTRACTOR-FORM] Setting business entity from contractor API (not set from project site)...');
+              setBusinessEntity(generalDetails.businessEntity);
+              console.log('🏢 [CONTRACTOR-FORM] Set Business Entity:', generalDetails.businessEntity);
+            } else {
+              console.log('🏢 [CONTRACTOR-FORM] Business entity already set from project site, skipping override');
+            }
           }
           
           if (generalDetails.businessEntityAddress) {
-            setBusinessEntityAddress(generalDetails.businessEntityAddress);
-            console.log('✅ [CONTRACTOR-FORM] Mapped Business Entity Address:', generalDetails.businessEntityAddress);
+            if (!businessEntityAddress || businessEntityAddress === "") {
+              console.log('🏢 [CONTRACTOR-FORM] Setting business entity address from contractor API (not set from project site)...');
+              setBusinessEntityAddress(generalDetails.businessEntityAddress);
+              console.log('🏢 [CONTRACTOR-FORM] Set Business Entity Address:', generalDetails.businessEntityAddress);
+            } else {
+              console.log('🏢 [CONTRACTOR-FORM] Business entity address already set from project site, skipping override');
+            }
           }
+          
+          console.log('✅ [CONTRACTOR-FORM] All form fields populated from server data');
+          console.log('📋 [CONTRACTOR-FORM] Final population summary:', {
+            contractorType: generalDetails.contractorType,
+            currentWorkingVoltage: generalDetails.workingVoltageLevel,
+            signeeNameOnBehalfOfCompany: generalDetails.nameOfSigneeOfCompany,
+            businessEntity: generalDetails.businessEntity,
+            businessEntityAddress: generalDetails.businessEntityAddress
+          });
+          
+          // ✅ IMMEDIATE STATE VERIFICATION (Debug)
+          setTimeout(() => {
+            console.log('🧪 [CONTRACTOR-FORM] ===== IMMEDIATE STATE VERIFICATION =====');
+            console.log('🧪 [CONTRACTOR-FORM] contractorType after 100ms:', contractorType);
+            console.log('🧪 [CONTRACTOR-FORM] currentWorkingVoltage after 100ms:', currentWorkingVoltage);
+            console.log('🧪 [CONTRACTOR-FORM] signeeNameOnBehalfOfCompany after 100ms:', signeeNameOnBehalfOfCompany);
+            console.log('🧪 [CONTRACTOR-FORM] businessEntity after 100ms:', businessEntity);
+            console.log('🧪 [CONTRACTOR-FORM] businessEntityAddress after 100ms:', businessEntityAddress);
+            console.log('🧪 [CONTRACTOR-FORM] =======================================');
+          }, 100);
+        } else {
+          console.log('⚠️ [CONTRACTOR-FORM] No contractorLicence_GeneralDetails found in API response');
+          console.log('⚠️ [CONTRACTOR-FORM] Available contractor data keys:', Object.keys(contractorData));
+          
+          // 🔍 TRY ALTERNATIVE DATA SOURCES
+          console.log('🔍 [CONTRACTOR-FORM] Checking alternative data sources...');
+          
+          // Check contractorPartnership_GeneralDetails
+          if (contractorData.contractorPartnership_GeneralDetails && contractorData.contractorPartnership_GeneralDetails.length > 0) {
+            console.log('✅ [CONTRACTOR-FORM] Found contractorPartnership_GeneralDetails!');
+            const partnershipDetails = contractorData.contractorPartnership_GeneralDetails[0];
+            console.log('📊 [CONTRACTOR-FORM] Partnership details structure:', Object.keys(partnershipDetails));
+            console.log('📊 [CONTRACTOR-FORM] Partnership details data:', partnershipDetails);
+            
+            // Try to populate from partnership details
+            if (partnershipDetails.nameOfSigneeOfCompany) {
+              setSigneeNameOnBehalfOfCompany(partnershipDetails.nameOfSigneeOfCompany);
+              console.log('📝 [CONTRACTOR-FORM] Set Signee Name from partnership:', partnershipDetails.nameOfSigneeOfCompany);
+            }
+            
+            if (partnershipDetails.businessEntity) {
+              setBusinessEntity(partnershipDetails.businessEntity);
+              console.log('🏢 [CONTRACTOR-FORM] Set Business Entity from partnership:', partnershipDetails.businessEntity);
+            }
+            
+            if (partnershipDetails.businessEntityAddress) {
+              setBusinessEntityAddress(partnershipDetails.businessEntityAddress);
+              console.log('🏢 [CONTRACTOR-FORM] Set Business Entity Address from partnership:', partnershipDetails.businessEntityAddress);
+            }
+          }
+          
+          // Check if these fields exist at root level
+          console.log('🔍 [CONTRACTOR-FORM] Checking for business entity fields at root level:');
+          console.log('   - signeeNameOnBehalfOfCompany:', contractorData.signeeNameOnBehalfOfCompany);
+          console.log('   - businessEntity:', contractorData.businessEntity);
+          console.log('   - businessEntityAddress:', contractorData.businessEntityAddress);
+          
+          // Also try root level if partnership details didn't work
+          if (contractorData.signeeNameOnBehalfOfCompany) {
+            setSigneeNameOnBehalfOfCompany(contractorData.signeeNameOnBehalfOfCompany);
+            console.log('📝 [CONTRACTOR-FORM] Set Signee Name from root:', contractorData.signeeNameOnBehalfOfCompany);
+          }
+          
+          if (contractorData.businessEntity) {
+            setBusinessEntity(contractorData.businessEntity);
+            console.log('🏢 [CONTRACTOR-FORM] Set Business Entity from root:', contractorData.businessEntity);
+          }
+          
+          if (contractorData.businessEntityAddress) {
+            setBusinessEntityAddress(contractorData.businessEntityAddress);
+            console.log('🏢 [CONTRACTOR-FORM] Set Business Entity Address from root:', contractorData.businessEntityAddress);
+          }
+          
+          console.log('⚠️ [CONTRACTOR-FORM] Full contractor data structure:', JSON.stringify(contractorData, null, 2));
+          
+          console.log('ℹ️ [CONTRACTOR-FORM] No contractor general details found in contractor API response - relying on project site data for field population');
         }
 
         // CRITICAL: Set applicationData for field state management (EXACT Angular mapping)
@@ -521,6 +764,32 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       }
     }
   }, [isInitialLoad, restoreApplicationState, getContractorApplicationDetails]);
+
+  // ✅ CRITICAL: Watch for draftApplicationId changes and trigger data loading (Angular parity)
+  // Angular: ngOnInit() calls getContractorApplicationDetails when appId is available
+  useEffect(() => {
+    if (draftApplicationId && draftApplicationId > 0) {
+      console.log('🎯 [CONTRACTOR-FORM] === DRAFT APPLICATION ID DETECTED ===');
+      console.log('🎯 [CONTRACTOR-FORM] draftApplicationId:', draftApplicationId);
+      console.log('🎯 [CONTRACTOR-FORM] isInitialLoad:', isInitialLoad);
+      console.log('🎯 [CONTRACTOR-FORM] Triggering immediate data refresh for dropdown population...');
+      
+      // Call immediately to populate dropdowns and other data
+      // Remove isInitialLoad condition since we need this to work on first load
+      getContractorApplicationDetails();
+    }
+  }, [draftApplicationId, getContractorApplicationDetails]);
+
+  // ✅ DEBUG: Monitor when state values actually change
+  useEffect(() => {
+    console.log('🔄 [CONTRACTOR-FORM] ===== STATE CHANGE MONITOR =====');
+    console.log('🔄 [CONTRACTOR-FORM] contractorType state changed to:', contractorType);
+  }, [contractorType]);
+
+  useEffect(() => {
+    console.log('🔄 [CONTRACTOR-FORM] ===== STATE CHANGE MONITOR =====');
+    console.log('🔄 [CONTRACTOR-FORM] currentWorkingVoltage state changed to:', currentWorkingVoltage);
+  }, [currentWorkingVoltage]);
 
   // Enhanced Add Working Area with validation and application check (Angular function name: addWorkingArea)
   const addWorkingArea = useCallback(async () => {

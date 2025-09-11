@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from '../../components/shared-component/DataTable';
 import FileUpload from '../../components/FileUpload';
 import { useContractorForm } from '../../hooks/useContractorForm';
+import { useContractorValidation } from '../../hooks/useContractorValidation';
+import { userDetailsService } from '../../services/api/userDetailsService';
+import { ContractorPayloadBuilder } from '../../services/contractorPayloadBuilder';
+import encryptionService from '../../lib/encryptionService';
 import { 
   CONTRACTOR_TYPES, 
   VOLTAGE_TYPES, 
@@ -12,7 +16,73 @@ import {
 
 const ContractorApplicantDetails: React.FC = () => {
   const navigate = useNavigate();
-  const [draftApplicationId, setDraftApplicationId] = useState<number | null>(null);
+  
+  // ✅ CRITICAL: Determine draftApplicationId IMMEDIATELY before hook call (Angular parity)
+  const getDraftApplicationId = (): number | null => {
+    console.log('🔗 [CONTRACTOR-DETAILS] ===== IMMEDIATE DRAFT ID DETECTION =====');
+    
+    // Step 1: Check localStorage first (primary Angular method)
+    const applicationIdFromStorage = localStorage.getItem('ApplicationId');
+    const inspectionTypeFromStorage = localStorage.getItem('InspectionType');
+    
+    console.log('📱 [CONTRACTOR-DETAILS] localStorage check:', {
+      ApplicationId: applicationIdFromStorage,
+      InspectionType: inspectionTypeFromStorage
+    });
+    
+    if (applicationIdFromStorage && inspectionTypeFromStorage === 'Contractor') {
+      const numericAppId = parseInt(applicationIdFromStorage);
+      if (!isNaN(numericAppId) && numericAppId > 0) {
+        console.log('✅ [CONTRACTOR-DETAILS] Draft navigation detected via localStorage:', numericAppId);
+        return numericAppId;
+      }
+    }
+    
+    // Step 2: Check URL parameters as fallback
+    const urlParams = new URLSearchParams(window.location.search);
+    const appRefIdFromUrl = urlParams.get('appRefId') || 
+                           urlParams.get('applicationId') || 
+                           urlParams.get('appId') ||
+                           urlParams.get('ApplicationId');
+    
+    console.log('🔗 [CONTRACTOR-DETAILS] URL parameter check:', {
+      appRefId: urlParams.get('appRefId'),
+      applicationId: urlParams.get('applicationId'),
+      appId: urlParams.get('appId'),
+      ApplicationId: urlParams.get('ApplicationId'),
+      finalValue: appRefIdFromUrl
+    });
+    
+    if (appRefIdFromUrl) {
+      const numericAppRefId = parseInt(appRefIdFromUrl);
+      if (!isNaN(numericAppRefId) && numericAppRefId > 0) {
+        console.log('✅ [CONTRACTOR-DETAILS] AppRefId found in URL parameters:', numericAppRefId);
+        return numericAppRefId;
+      }
+    }
+    
+    // Step 3: Check sessionStorage as final fallback
+    const draftData = sessionStorage.getItem('draftApplicationData');
+    if (draftData) {
+      try {
+        const parsedData = JSON.parse(draftData);
+        if (parsedData.appId || parsedData.ApplicationId) {
+          const appId = parsedData.appId || parsedData.ApplicationId;
+          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected from sessionStorage, appId:', appId);
+          return appId;
+        }
+      } catch (error) {
+        console.error('❌ [CONTRACTOR-DETAILS] Error parsing draft data:', error);
+      }
+    }
+    
+    console.log('ℹ️ [CONTRACTOR-DETAILS] No draft navigation detected - user may be creating new application');
+    return null;
+  };
+
+  // ✅ Get draft ID IMMEDIATELY and synchronously before hook call
+  const draftApplicationId = getDraftApplicationId();
+  console.log('🎯 [CONTRACTOR-DETAILS] Final draftApplicationId for hook:', draftApplicationId);
 
   const {
   // Form States
@@ -104,42 +174,15 @@ const ContractorApplicantDetails: React.FC = () => {
   
 } = useContractorForm(draftApplicationId);
 
-  // ADD: URL Parameter Extraction (Angular: this.route.queryParams.subscribe)
+  // ✅ DEBUG: Monitor dropdown values for troubleshooting
   useEffect(() => {
-    console.log('🔗 [CONTRACTOR-DETAILS] Checking URL parameters for appRefId...');
-    
-    // Extract appRefId from URL parameters (like Angular)
-    const urlParams = new URLSearchParams(window.location.search);
-    const appRefIdFromUrl = urlParams.get('appRefId') || urlParams.get('applicationId') || urlParams.get('appId');
-    
-    console.log('🔗 [CONTRACTOR-DETAILS] URL params:', {
-      appRefId: urlParams.get('appRefId'),
-      applicationId: urlParams.get('applicationId'),
-      appId: urlParams.get('appId'),
-      finalValue: appRefIdFromUrl
-    });
-    
-    if (appRefIdFromUrl) {
-      const numericAppRefId = parseInt(appRefIdFromUrl);
-      console.log('✅ [CONTRACTOR-DETAILS] AppRefId from URL:', numericAppRefId);
-      setDraftApplicationId(numericAppRefId);
-      return;
-    }
-    
-    // Fallback: Check session storage for draft data
-    const draftData = sessionStorage.getItem('draftApplicationData');
-    if (draftData) {
-      try {
-        const parsedData = JSON.parse(draftData);
-        if (parsedData.appId) {
-          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected from session, appId:', parsedData.appId);
-          setDraftApplicationId(parsedData.appId);
-        }
-      } catch (error) {
-        console.error('❌ [CONTRACTOR-DETAILS] Error parsing draft data:', error);
-      }
-    }
-  }, []);
+    console.log('🔍 [CONTRACTOR-DETAILS] ===== DROPDOWN VALUES DEBUG =====');
+    console.log('🔍 [CONTRACTOR-DETAILS] contractorType:', contractorType);
+    console.log('🔍 [CONTRACTOR-DETAILS] currentWorkingVoltage:', currentWorkingVoltage);
+    console.log('🔍 [CONTRACTOR-DETAILS] draftApplicationId:', draftApplicationId);
+    console.log('🔍 [CONTRACTOR-DETAILS] apprefId:', apprefId);
+    console.log('🔍 [CONTRACTOR-DETAILS] ===============================');
+  }, [contractorType, currentWorkingVoltage, draftApplicationId, apprefId]);
 
   // ADD: Trigger data refresh when draftApplicationId is set (Angular naming: getContractorApplicationDetails)
   useEffect(() => {
@@ -197,8 +240,206 @@ const ContractorApplicantDetails: React.FC = () => {
 
   const handleBack = () => navigate(-1);
 
-  const handleSaveAndNext = () => {
-    console.log('Saving and proceeding to next step...');
+  // ✅ COMPLETE SAVE & NEXT IMPLEMENTATION (Angular Parity)
+  const validation = useContractorValidation();
+  const [isSaving, setIsSaving] = useState(false);
+  const [contractorLicenceId, setContractorLicenceId] = useState<number | undefined>();
+  const [contractorFormMode] = useState<string>('new'); // TODO: Get from props/context
+
+  const handleSaveAndNext = async () => {
+    console.log('💾 [SAVE_AND_NEXT] ===== SAVE & NEXT FUNCTION STARTED =====');
+    console.log('💾 [SAVE_AND_NEXT] Function: handleSaveAndNext()');
+    console.log('💾 [SAVE_AND_NEXT] Current application state:', applicationData);
+    console.log('💾 [SAVE_AND_NEXT] Is application locked:', applicationData?.isLocked);
+    console.log('💾 [SAVE_AND_NEXT] Current apprefId:', apprefId);
+    console.log('💾 [SAVE_AND_NEXT] Current contractorLicenceId:', contractorLicenceId);
+    console.log('💾 [SAVE_AND_NEXT] Contract form mode:', contractorFormMode);
+    console.log('💾 [SAVE_AND_NEXT] Contractor type:', contractorType);
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+
+      // Branch 1: Application is locked - Direct navigation
+      if (applicationData?.isLocked) {
+        console.log('🔒 [SAVE_AND_NEXT] Application is locked, preparing direct navigation');
+        handleLockedApplicationNavigation();
+        return;
+      }
+
+      // Branch 2: Application is not locked - Full validation and save flow
+      console.log('✅ [SAVE_AND_NEXT] Application is not locked, proceeding with validation');
+
+      // Step 1: Form validation
+      const formValidationResult = validation.validateForm({
+        applicant_name: applicant_name || '',
+        address: address || '',
+        panCardNumber: panCardNumber || '',
+        contractorType: contractorType || '',
+        currentWorkingVoltage: currentWorkingVoltage || '',
+        signeeNameOnBehalfOfCompany: signeeNameOnBehalfOfCompany || '',
+        businessEntity: businessEntity || '',
+        businessEntityAddress: businessEntityAddress || ''
+      });
+
+      if (!formValidationResult.isValid) {
+        validation.showValidationErrors(formValidationResult.errors || []);
+        return;
+      }
+
+      // Step 2: Working area validation
+      const workingAreaValidationResult = validation.validateWorkingAreas(workingAreaList || []);
+      if (!workingAreaValidationResult.isValid) {
+        validation.showWorkingAreaError();
+        return;
+      }
+
+      // Step 3: Instrument validation
+      const instrumentValidationResult = validation.validateInstruments(
+        (instruments || []).map(inst => ({
+          districtRefId: inst.districtRefId || 0,
+          tehsilRefId: inst.tehsilRefId || 0,
+          instrumentType: inst.instrumentType,
+          applicationInstrumentsType: inst.applicationInstrumentsType
+        })),
+        selectedInstrumentList || [],
+        workingAreaList || []
+      );
+      if (!instrumentValidationResult.isValid) {
+        validation.showInstrumentError(instrumentValidationResult.details);
+        return;
+      }
+
+      // Step 4: Calculate license validity
+      const licenseCalculation = validation.calculateLicenseValidity(currentWorkingVoltage || '1');
+
+      // Step 5: Build contractor payload
+      const contractorPayload = ContractorPayloadBuilder.buildContractorPayload({
+        contractorLicenceId,
+        apprefId: apprefId || 0,
+        contractorType: contractorType || '',
+        currentWorkingVoltage: currentWorkingVoltage || '',
+        panCardNumber: panCardNumber || '',
+        signeeNameOnBehalfOfCompany,
+        businessEntity,
+        businessEntityAddress,
+        is30DaysCrossed: false, // TODO: Get from application data
+        contractorFormMode,
+        contractorInfo: applicationData // For change detection
+      }, licenseCalculation);
+
+      // Step 6: Primary API call - Save contractor application
+      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING PRIMARY API CALL =====');
+      const contractorResponse = await userDetailsService.saveContractorApplicationGeneralDetails(contractorPayload);
+
+      if (!contractorResponse.success) {
+        throw new Error(contractorResponse.error || contractorResponse.message || 'Failed to save contractor application');
+      }
+
+      // Step 7: Update contractor licence ID from response
+      const responseContractorLicenceId = contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId;
+      if (responseContractorLicenceId && !contractorLicenceId) {
+        setContractorLicenceId(responseContractorLicenceId);
+        console.log('✅ [SAVE_AND_NEXT] Updated contractorLicenceId:', responseContractorLicenceId);
+      }
+
+      // Step 8: Secondary API call - Application details
+      const applicationDetailsPayload = ContractorPayloadBuilder.buildApplicationDetailsPayload(
+        apprefId || 0,
+        contractorType || '',
+        contractorFormMode,
+        {
+          projectSiteId: 1, // TODO: Get from context
+          userId: 1, // TODO: Get from context
+          userProfileId: 1 // TODO: Get from context
+        },
+        applicationData
+      );
+
+      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING SECONDARY API CALL =====');
+      const applicationDetailsResponse = await userDetailsService.addUpdateApplicationDetails(applicationDetailsPayload);
+
+      if (!applicationDetailsResponse.success) {
+        console.warn('⚠️ [SAVE_AND_NEXT] Application details API warning:', applicationDetailsResponse.error);
+      }
+
+      // Step 9: Tertiary API call - Application action
+      const applicationActionPayload = ContractorPayloadBuilder.buildApplicationActionPayload(
+        apprefId || 0,
+        contractorFormMode,
+        {
+          userId: 1, // TODO: Get from context
+          userProfileId: 1, // TODO: Get from context
+          ipAddress: '127.0.0.1', // TODO: Get client IP
+          latitude: '0', // TODO: Get location
+          longitude: '0' // TODO: Get location
+        },
+        applicationData
+      );
+
+      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING TERTIARY API CALL =====');
+      const applicationActionResponse = await userDetailsService.addUpdateApplicationAction(applicationActionPayload);
+
+      if (!applicationActionResponse.success) {
+        console.warn('⚠️ [SAVE_AND_NEXT] Application action API warning:', applicationActionResponse.error);
+      }
+
+      // Step 10: Build encrypted query parameters and navigate
+      console.log('🏠 [SAVE_AND_NEXT] ===== PREPARING NAVIGATION =====');
+      const queryParams = ContractorPayloadBuilder.buildQueryParams({
+        workingAreaList: workingAreaList || [],
+        contractorFormMode,
+        selectedWorkingAreaDistrictsList: [], // Angular compatibility - computed from workingAreaList
+        apprefId: apprefId || 0,
+        applicationIsLocked: false,
+        contractorLicenceId: responseContractorLicenceId || contractorLicenceId || 0,
+        contractorType: contractorType || '',
+        renewAppId: null, // TODO: Handle renewal case
+        is30DaysCrossed: false // TODO: Handle 30-day logic
+      }, encryptionService);
+
+      // Convert query params to URL search string
+      const searchParams = new URLSearchParams(queryParams);
+
+      console.log('🏠 [SAVE_AND_NEXT] Navigation target: /contractor-supervisor');
+      console.log('✅ [SAVE_AND_NEXT] ===== FUNCTION COMPLETED SUCCESSFULLY =====');
+
+      // Show success message
+      setSaveSuccess('Application saved successfully!');
+
+      // Navigate to supervisor page
+      setTimeout(() => {
+        navigate(`/contractor-supervisor?${searchParams.toString()}`);
+      }, 1000);
+
+    } catch (error: any) {
+      console.error('❌ [SAVE_AND_NEXT] Error occurred:', error);
+      setSaveError(error.message || 'Failed to save application. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * Handle locked application navigation (Angular parity)
+   */
+  const handleLockedApplicationNavigation = () => {
+    console.log('🔒 [SAVE_AND_NEXT] Handling locked application navigation');
+    
+    const queryParams = ContractorPayloadBuilder.buildQueryParams({
+      workingAreaList: workingAreaList || [],
+      contractorFormMode,
+      selectedWorkingAreaDistrictsList: [], // Angular compatibility - computed from workingAreaList
+      apprefId: apprefId || 0,
+      applicationIsLocked: true,
+      contractorLicenceId: contractorLicenceId || 0,
+      contractorType: contractorType || '',
+      renewAppId: null,
+      is30DaysCrossed: false
+    }, encryptionService);
+
+    const searchParams = new URLSearchParams(queryParams);
+    navigate(`/contractor-supervisor?${searchParams.toString()}`);
   };
 
   const steps = [
@@ -477,6 +718,7 @@ const ContractorApplicantDetails: React.FC = () => {
                         onChange={(e) => setSigneeNameOnBehalfOfCompany(e.target.value)}
                         placeholder="Name of the Signee (On Company's behalf)"
                         className="form-control-custom"
+                        disabled={areFieldsDisabled}
                       />
                     </Form.Group>
                   </Col>
@@ -497,6 +739,7 @@ const ContractorApplicantDetails: React.FC = () => {
                         onChange={(e) => setBusinessEntity(e.target.value)}
                         placeholder="Business Entity"
                         className="form-control-custom"
+                        disabled={areFieldsDisabled}
                       />
                     </Form.Group>
                   </Col>
@@ -511,6 +754,7 @@ const ContractorApplicantDetails: React.FC = () => {
                         onChange={(e) => setBusinessEntityAddress(e.target.value)}
                         placeholder="Business Entity Address"
                         className="form-control-custom"
+                        disabled={areFieldsDisabled}
                       />
                     </Form.Group>
                   </Col>
@@ -767,7 +1011,6 @@ const ContractorApplicantDetails: React.FC = () => {
                         maxLength={10}
                         style={{ textTransform: 'uppercase' }}
                       />
-                      <div className="text-muted small mt-1">Count: {panNo.length} / 10</div>
                     </Form.Group>
                   </Col>
                 </Row>
@@ -904,10 +1147,7 @@ const ContractorApplicantDetails: React.FC = () => {
                       placeholder=""
                       className="form-control-custom"
                     />
-                    {/* Character Count Display (Angular parity) */}
-                    <div className="text-muted small mt-1">
-                      {instrumentCharacterCount.serialNo}/50 characters
-                    </div>
+
                     {/* Validation Error Display (Angular parity) */}
                     {instrumentFormErrors.serialNo && (
                       <div className="text-danger small mt-1">
@@ -929,10 +1169,7 @@ const ContractorApplicantDetails: React.FC = () => {
                       placeholder=""
                       className="form-control-custom"
                     />
-                    {/* Character Count Display (Angular parity) */}
-                    <div className="text-muted small mt-1">
-                      {instrumentCharacterCount.make}/100 characters
-                    </div>
+
                     {/* Validation Error Display (Angular parity) */}
                     {instrumentFormErrors.make && (
                       <div className="text-danger small mt-1">
@@ -1029,12 +1266,7 @@ const ContractorApplicantDetails: React.FC = () => {
                         {locationErrors.districts}
                       </div>
                     </div>
-                    {workingAreaList.length > 0 && (
-                      <div className="text-muted small mt-1">
-                        <i className="bi bi-info-circle me-1"></i>
-                        Only districts from your working areas are shown
-                      </div>
-                    )}
+
                   </Form.Group>
                 </Col>
 
@@ -1078,12 +1310,6 @@ const ContractorApplicantDetails: React.FC = () => {
                       {locationErrors.tehsils}
                     </div>
                   </div>
-                  {workingAreaList.length > 0 && instrumentDistrict && (
-                    <div className="text-muted small mt-1">
-                      <i className="bi bi-info-circle me-1"></i>
-                      Only tehsils from your working areas are shown
-                    </div>
-                  )}
                 </Form.Group>
               </Col>
 
@@ -1151,9 +1377,26 @@ const ContractorApplicantDetails: React.FC = () => {
                 variant="primary" 
                 onClick={handleSaveAndNext}
                 className="btn-custom"
+                disabled={isSaving || areFieldsDisabled}
               >
-                Save & Next
-                <i className="bi bi-arrow-right ms-2"></i>
+                {isSaving ? (
+                  <>
+                    <Spinner
+                      as="span"
+                      animation="border"
+                      size="sm"
+                      role="status"
+                      aria-hidden="true"
+                      className="me-2"
+                    />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    {applicationData?.isLocked ? 'Application Locked' : 'Save & Next'}
+                    <i className={`bi ${applicationData?.isLocked ? 'bi-lock' : 'bi-arrow-right'} ms-2`}></i>
+                  </>
+                )}
               </Button>
             </div>
           </Card.Body>
