@@ -40,11 +40,12 @@ export const useCertificateValidation = () => {
     return new Date(dateString).toISOString().split('T')[0];
   };
 
-  // Validate supervisor certificate number (matches Angular implementation)
+  // Validate supervisor certificate number (matches Angular implementation exactly)
   const validateSupervisorCertificate = useCallback(async (
     licenceNo: string,
     isOnlineMode: boolean,
-    contractorFormMode: 'new' | 'renew' = 'new'
+    contractorFormMode: 'new' | 'renew' = 'new',
+    renewAppId?: number
   ): Promise<CertificateValidationResult> => {
     if (!licenceNo.trim()) {
       return { isValid: false, isExpired: false, message: 'Certificate number is required' };
@@ -99,27 +100,82 @@ export const useCertificateValidation = () => {
           }
         }
       } else {
-        // RENEW CASE: Different logic for renewal
-        console.log('🔄 [CERTIFICATE-VALIDATION] Checking supervisor for renewal');
+        // RENEW CASE: Match Angular logic exactly
+        console.log('🔄 [CERTIFICATE-VALIDATION] Checking supervisor for renewal, renewAppId:', renewAppId);
         const backlogResponse = await userDetailsService.getSuperBacklogDetailsByLicenceNo(licenceNo);
         
         if (backlogResponse?.data?.formModel?.length > 0) {
-          // Find the record with largest ID
+          // Find the record with largest ID (Angular logic)
           const largestIdObject = backlogResponse.data.formModel.reduce((max: any, item: any) => 
             (item.id > max.id ? item : max), backlogResponse.data.formModel[0]);
           
-          // Check if it matches renewal app ID (this would need to be passed in)
-          // For now, proceed with the validation logic
-          const isExpired = isCertificateExpired(largestIdObject.licenceValidUpto);
+          console.log('🔍 [CERTIFICATE-VALIDATION] Largest ID object:', largestIdObject);
           
-          if (isExpired && isOnlineMode) {
+          // Check if it matches renewal app ID (Angular exact logic)
+          if (largestIdObject?.appRefId === renewAppId) {
+            console.log('✅ [CERTIFICATE-VALIDATION] App ID matched for renewal');
+            const isExpired = isCertificateExpired(largestIdObject.licenceValidUpto);
+            
+            if (isExpired) {
+              // Check online source if available
+              if (isOnlineMode) {
+                const detailsResponse = await userDetailsService.getSupervisorDetails_ByLicenceNo(licenceNo);
+                
+                if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
+                  const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
+                  const newIsExpired = isCertificateExpired(latestRecord.licenceValidOnUpToDate);
+                  
+                  if (newIsExpired) {
+                    return {
+                      isValid: false,
+                      isExpired: true,
+                      message: 'It looks like licence has expired or something went wrong. Please try again'
+                    };
+                  }
+
+                  return {
+                    isValid: true,
+                    isExpired: false,
+                    fullName: formatFullName(latestRecord.userProfile),
+                    licenceValidUpto: formatDateForForm(latestRecord.licenceValidOnUpToDate),
+                    panNo: latestRecord.application?.projectSites?.applicantPanNumber
+                  };
+                } else {
+                  return {
+                    isValid: false,
+                    isExpired: true,
+                    message: 'It looks like licence has expired or something went wrong. Please try again'
+                  };
+                }
+              } else {
+                // Offline mode with expired license
+                return {
+                  isValid: false,
+                  isExpired: true,
+                  message: 'It looks like licence has expired or something went wrong. Please try again'
+                };
+              }
+            }
+            // License not expired, can proceed
+            return { isValid: true, isExpired: false };
+          } else {
+            // App ID doesn't match
+            return {
+              isValid: false,
+              isExpired: false,
+              message: 'It looks like licence has expired or something went wrong. Please try again'
+            };
+          }
+        } else {
+          // No backlog data, check online if available
+          if (isOnlineMode) {
             const detailsResponse = await userDetailsService.getSupervisorDetails_ByLicenceNo(licenceNo);
             
             if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
               const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
-              const newIsExpired = isCertificateExpired(latestRecord.licenceValidOnUpToDate);
+              const isExpired = isCertificateExpired(latestRecord.licenceValidOnUpToDate);
               
-              if (newIsExpired) {
+              if (isExpired) {
                 return {
                   isValid: false,
                   isExpired: true,
@@ -133,6 +189,12 @@ export const useCertificateValidation = () => {
                 fullName: formatFullName(latestRecord.userProfile),
                 licenceValidUpto: formatDateForForm(latestRecord.licenceValidOnUpToDate),
                 panNo: latestRecord.application?.projectSites?.applicantPanNumber
+              };
+            } else {
+              return {
+                isValid: false,
+                isExpired: false,
+                message: 'It looks like licence has expired or something went wrong. Please try again'
               };
             }
           }
@@ -152,11 +214,12 @@ export const useCertificateValidation = () => {
     }
   }, []);
 
-  // Validate wireman permit number (matches Angular implementation)
+  // Validate wireman permit number (matches Angular implementation exactly)
   const validateWiremanCertificate = useCallback(async (
     licenceNo: string,
     isOnlineMode: boolean,
-    contractorFormMode: 'new' | 'renew' = 'new'
+    contractorFormMode: 'new' | 'renew' = 'new',
+    renewAppId?: number
   ): Promise<CertificateValidationResult> => {
     if (!licenceNo.trim()) {
       return { isValid: false, isExpired: false, message: 'Permit number is required' };
@@ -211,27 +274,82 @@ export const useCertificateValidation = () => {
           }
         }
       } else {
-        // RENEW CASE: Different logic for renewal
-        console.log('🔄 [CERTIFICATE-VALIDATION] Checking wireman for renewal');
+        // RENEW CASE: Match Angular logic exactly
+        console.log('🔄 [CERTIFICATE-VALIDATION] Checking wireman for renewal, renewAppId:', renewAppId);
         const backlogResponse = await userDetailsService.getWireBacklogDetailsByLicenceNo(licenceNo);
         
         if (backlogResponse?.data?.formModel?.length > 0) {
-          // Find the record with largest ID
+          // Find the record with largest ID (Angular logic)
           const largestIdObject = backlogResponse.data.formModel.reduce((max: any, item: any) => 
             (item.id > max.id ? item : max), backlogResponse.data.formModel[0]);
           
-          // Check if it matches renewal app ID (this would need to be passed in)
-          // For now, proceed with the validation logic
-          const isExpired = isCertificateExpired(largestIdObject.licenceValidUpto);
+          console.log('🔍 [CERTIFICATE-VALIDATION] Largest ID object:', largestIdObject);
           
-          if (isExpired && isOnlineMode) {
+          // Check if it matches renewal app ID (Angular exact logic)
+          if (largestIdObject?.appRefId === renewAppId) {
+            console.log('✅ [CERTIFICATE-VALIDATION] App ID matched for renewal');
+            const isExpired = isCertificateExpired(largestIdObject.licenceValidUpto);
+            
+            if (isExpired) {
+              // Check online source if available
+              if (isOnlineMode) {
+                const detailsResponse = await userDetailsService.getWiremanDetails_ByLicenceNo(licenceNo);
+                
+                if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
+                  const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
+                  const newIsExpired = isCertificateExpired(latestRecord.licenceValidOnUpToDate);
+                  
+                  if (newIsExpired) {
+                    return {
+                      isValid: false,
+                      isExpired: true,
+                      message: 'It looks like licence has expired or something went wrong. Please try again'
+                    };
+                  }
+
+                  return {
+                    isValid: true,
+                    isExpired: false,
+                    fullName: formatFullName(latestRecord.userProfile),
+                    licenceValidUpto: formatDateForForm(latestRecord.licenceValidOnUpToDate),
+                    panNo: latestRecord.application?.projectSites?.applicantPanNumber
+                  };
+                } else {
+                  return {
+                    isValid: false,
+                    isExpired: true,
+                    message: 'It looks like licence has expired or something went wrong. Please try again'
+                  };
+                }
+              } else {
+                // Offline mode with expired license
+                return {
+                  isValid: false,
+                  isExpired: true,
+                  message: 'It looks like licence has expired or something went wrong. Please try again'
+                };
+              }
+            }
+            // License not expired, can proceed
+            return { isValid: true, isExpired: false };
+          } else {
+            // App ID doesn't match
+            return {
+              isValid: false,
+              isExpired: false,
+              message: 'It looks like licence has expired or something went wrong. Please try again'
+            };
+          }
+        } else {
+          // No backlog data, check online if available
+          if (isOnlineMode) {
             const detailsResponse = await userDetailsService.getWiremanDetails_ByLicenceNo(licenceNo);
             
             if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
               const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
-              const newIsExpired = isCertificateExpired(latestRecord.licenceValidOnUpToDate);
+              const isExpired = isCertificateExpired(latestRecord.licenceValidOnUpToDate);
               
-              if (newIsExpired) {
+              if (isExpired) {
                 return {
                   isValid: false,
                   isExpired: true,
@@ -245,6 +363,12 @@ export const useCertificateValidation = () => {
                 fullName: formatFullName(latestRecord.userProfile),
                 licenceValidUpto: formatDateForForm(latestRecord.licenceValidOnUpToDate),
                 panNo: latestRecord.application?.projectSites?.applicantPanNumber
+              };
+            } else {
+              return {
+                isValid: false,
+                isExpired: false,
+                message: 'It looks like licence has expired or something went wrong. Please try again'
               };
             }
           }
@@ -269,7 +393,8 @@ export const useCertificateValidation = () => {
     licenceNo: string,
     isOnlineMode: boolean,
     onResult: (result: CertificateValidationResult) => void,
-    contractorFormMode: 'new' | 'renew' = 'new'
+    contractorFormMode: 'new' | 'renew' = 'new',
+    renewAppId?: number
   ) => {
     // Clear previous timeout
     if (supervisorTimeoutRef.current) {
@@ -278,7 +403,7 @@ export const useCertificateValidation = () => {
 
     // Set new timeout (2 seconds debounce like Angular)
     supervisorTimeoutRef.current = setTimeout(async () => {
-      const result = await validateSupervisorCertificate(licenceNo, isOnlineMode, contractorFormMode);
+      const result = await validateSupervisorCertificate(licenceNo, isOnlineMode, contractorFormMode, renewAppId);
       onResult(result);
     }, 2000);
   }, [validateSupervisorCertificate]);
@@ -288,7 +413,8 @@ export const useCertificateValidation = () => {
     licenceNo: string,
     isOnlineMode: boolean,
     onResult: (result: CertificateValidationResult) => void,
-    contractorFormMode: 'new' | 'renew' = 'new'
+    contractorFormMode: 'new' | 'renew' = 'new',
+    renewAppId?: number
   ) => {
     // Clear previous timeout
     if (wiremanTimeoutRef.current) {
@@ -297,7 +423,7 @@ export const useCertificateValidation = () => {
 
     // Set new timeout (2 seconds debounce like Angular)
     wiremanTimeoutRef.current = setTimeout(async () => {
-      const result = await validateWiremanCertificate(licenceNo, isOnlineMode, contractorFormMode);
+      const result = await validateWiremanCertificate(licenceNo, isOnlineMode, contractorFormMode, renewAppId);
       onResult(result);
     }, 2000);
   }, [validateWiremanCertificate]);

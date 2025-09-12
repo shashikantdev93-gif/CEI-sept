@@ -2,6 +2,7 @@
  * Service for building API payloads for Save & Next flow
  * Matches Angular payload structure exactly
  */
+import { getContractorTypeId, getVoltageTypeId } from '../constants/contractor';
 
 export interface ContractorPayloadData {
   contractorLicenceId?: number;
@@ -29,40 +30,88 @@ export interface UserContextData {
 export class ContractorPayloadBuilder {
   
   /**
-   * Build contractor application payload
+   * Build contractor application payload (Angular Exact Parity)
    * Angular: ContractorLicence/addUpdateContractApplication_GeneralDetails
    */
   static buildContractorPayload(data: ContractorPayloadData, licenseCalculation: any): any {
-    console.log('🏗️ [PAYLOAD-BUILDER] Building contractor payload');
+    console.log('🏗️ [PAYLOAD-BUILDER] Building contractor payload (Angular Parity)');
     console.log('🏗️ [PAYLOAD-BUILDER] Input data:', data);
     console.log('🏗️ [PAYLOAD-BUILDER] License calculation:', licenseCalculation);
     
-    // Detect working voltage change
-    const isWorkingVoltageChange = data.contractorInfo?.applicationWorkingVoltageType !== 
-                                  parseInt(data.currentWorkingVoltage);
+    // Convert string names to numeric IDs (Angular format)
+    const contractorTypeId = getContractorTypeId(data.contractorType);
+    const workingVoltageTypeId = getVoltageTypeId(data.currentWorkingVoltage);
+    
+    console.log('🏗️ [PAYLOAD-BUILDER] ===== TYPE CONVERSION =====');
+    console.log('🏗️ [PAYLOAD-BUILDER] contractorType string:', `"${data.contractorType}"`);
+    console.log('🏗️ [PAYLOAD-BUILDER] contractorType ID:', contractorTypeId);
+    console.log('🏗️ [PAYLOAD-BUILDER] currentWorkingVoltage string:', `"${data.currentWorkingVoltage}"`);
+    console.log('🏗️ [PAYLOAD-BUILDER] currentWorkingVoltage ID:', workingVoltageTypeId);
+    
+    // Validate conversions worked
+    if (contractorTypeId === 0) {
+      console.warn('⚠️ [PAYLOAD-BUILDER] contractorType mapping failed! Using default (3)');
+    }
+    if (workingVoltageTypeId === 0) {
+      console.warn('⚠️ [PAYLOAD-BUILDER] currentWorkingVoltage mapping failed! Using default (1)');
+    }
+    
+    // Angular working voltage change detection (renewal logic)
+    const isWorkingVoltageChange = data.contractorFormMode === 'renew' || data.contractorFormMode === 'renew_first' 
+      ? (data.contractorInfo?.applicationWorkingVoltageType !== workingVoltageTypeId)
+      : false;
+    
+    // Angular conditional business logic for Individual contractors (ID 3)
+    const isIndividualContractor = contractorTypeId === 3;
+    console.log('🏗️ [PAYLOAD-BUILDER] Is individual contractor (type 3):', isIndividualContractor);
     
     const payload = {
       contractorLicenceId: data.contractorLicenceId || 0,
       appRefId: data.apprefId,
-      applicationContractorType: parseInt(data.contractorType),
-      applicationWorkingVoltageType: parseInt(data.currentWorkingVoltage),
-      panNumber: data.panCardNumber,
-      nameOfSigneeOfCompany: data.signeeNameOnBehalfOfCompany || '',
-      businessEntity: data.businessEntity || '',
-      businessEntityAddress: data.businessEntityAddress || '',
+      applicationContractorType: contractorTypeId || 3, // Default to Individual if mapping fails
+      applicationWorkingVoltageType: workingVoltageTypeId || 1, // Default to Low/Medium if mapping fails
+      panNumber: data.panCardNumber || "",
+      // Angular exact logic: this.contractorType === '3' ? 'N/A' : this.applicantDetailsForm?.value?.nameOfSigneeOfCompany
+      nameOfSigneeOfCompany: isIndividualContractor ? 'N/A' : (data.signeeNameOnBehalfOfCompany || ''),
+      // Angular exact logic: this.contractorType === '3' ? 'N/A' : this.applicantDetailsForm?.value?.businessEntity  
+      businessEntity: isIndividualContractor ? 'N/A' : (data.businessEntity || ''),
+      // Angular exact logic: this.contractorType === '3' ? 'N/A' : this.applicantDetailsForm?.value?.businessEntityAddress
+      businessEntityAddress: isIndividualContractor ? 'N/A' : (data.businessEntityAddress || ''),
       isActive: true,
       isDeleted: false,
       createdOnDate: licenseCalculation.currentDate,
       lastModifiedOnDate: licenseCalculation.currentDate,
       licenceNoOfYear: licenseCalculation.licenceNoOfYear,
-      remarks: "N/A",
+      // Angular remarks logic
+      remarks: data.contractorInfo?.contractorLicence_GeneralDetails?.remarks || 'N/A',
       licenceValidUpto: licenseCalculation.licenceValidUpto,
       isCross30Days: data.is30DaysCrossed || false,
       isOtherStatePermit: false,
       isWorkingVoltageChange: isWorkingVoltageChange
     };
     
-    console.log('🏗️ [PAYLOAD-BUILDER] Final contractor payload:', payload);
+    console.log('🏗️ [PAYLOAD-BUILDER] ===== FINAL CONTRACTOR APPLICANT PAYLOAD =====');
+    console.log('🏗️ [PAYLOAD-BUILDER] Raw payload object:', payload);
+    console.log('🏗️ [PAYLOAD-BUILDER] Payload details:');
+    console.log('🏗️ [PAYLOAD-BUILDER] - contractorLicenceId:', payload.contractorLicenceId);
+    console.log('🏗️ [PAYLOAD-BUILDER] - appRefId:', payload.appRefId);
+    console.log('🏗️ [PAYLOAD-BUILDER] - applicationContractorType:', payload.applicationContractorType);
+    console.log('🏗️ [PAYLOAD-BUILDER] - applicationWorkingVoltageType:', payload.applicationWorkingVoltageType);
+    console.log('🏗️ [PAYLOAD-BUILDER] - panNumber:', payload.panNumber);
+    console.log('🏗️ [PAYLOAD-BUILDER] - nameOfSigneeOfCompany:', payload.nameOfSigneeOfCompany);
+    console.log('🏗️ [PAYLOAD-BUILDER] - businessEntity:', payload.businessEntity);
+    console.log('🏗️ [PAYLOAD-BUILDER] - businessEntityAddress:', payload.businessEntityAddress);
+    console.log('🏗️ [PAYLOAD-BUILDER] - isActive:', payload.isActive);
+    console.log('🏗️ [PAYLOAD-BUILDER] - isDeleted:', payload.isDeleted);
+    console.log('🏗️ [PAYLOAD-BUILDER] - createdOnDate:', payload.createdOnDate);
+    console.log('🏗️ [PAYLOAD-BUILDER] - lastModifiedOnDate:', payload.lastModifiedOnDate);
+    console.log('🏗️ [PAYLOAD-BUILDER] - licenceNoOfYear:', payload.licenceNoOfYear);
+    console.log('🏗️ [PAYLOAD-BUILDER] - remarks:', payload.remarks);
+    console.log('🏗️ [PAYLOAD-BUILDER] - licenceValidUpto:', payload.licenceValidUpto);
+    console.log('🏗️ [PAYLOAD-BUILDER] - isCross30Days:', payload.isCross30Days);
+    console.log('🏗️ [PAYLOAD-BUILDER] - isOtherStatePermit:', payload.isOtherStatePermit);
+    console.log('🏗️ [PAYLOAD-BUILDER] - isWorkingVoltageChange:', payload.isWorkingVoltageChange);
+    
     return payload;
   }
   
@@ -145,36 +194,52 @@ export class ContractorPayloadBuilder {
   }
   
   /**
-   * Build encrypted query parameters for navigation
+   * Build encrypted query parameters for navigation (Angular Exact Parity)
    * Angular: Query parameter encryption for navigation
    */
   static buildQueryParams(
     data: any,
     encryptionService: any
   ): Record<string, string> {
-    console.log('🔐 [PAYLOAD-BUILDER] Building encrypted query parameters');
+    console.log('🔐 [PAYLOAD-BUILDER] Building encrypted query parameters (Angular Parity)');
     
+    // Angular exact parameter names and structure
     const queryParams: Record<string, string> = {
       workingAreaList: encryptionService.set(JSON.stringify(data.workingAreaList || [])),
       formMode: encryptionService.set(data.contractorFormMode || 'new'),
       selectedWorkingAreaDistrictsList: encryptionService.set(JSON.stringify(data.selectedWorkingAreaDistrictsList || [])),
       appRefId: encryptionService.set(data.apprefId?.toString() || '0'),
-      applicationIsLocked: encryptionService.set(data.applicationIsLocked?.toString() || 'false'),
+      applicationIsLocked: encryptionService.set((data.applicationIsLocked === undefined ? false : data.applicationIsLocked).toString()),
       contractorLicenceId: encryptionService.set(data.contractorLicenceId?.toString() || '0'),
-      applicationContractorType: encryptionService.set(data.contractorType?.toString() || '3'),
+      applicationContractorType: encryptionService.set(data.applicationContractorType?.toString() || '3'),
     };
 
-    // Conditional parameters based on application type
-    if (data.renewAppId !== null && data.renewAppId !== undefined) {
+    console.log('🔐 [PAYLOAD-BUILDER] Base query params prepared:', {
+      workingAreaList: 'encrypted(' + JSON.stringify(data.workingAreaList || []) + ')',
+      formMode: 'encrypted(' + (data.contractorFormMode || 'new') + ')',
+      selectedWorkingAreaDistrictsList: 'encrypted(' + JSON.stringify(data.selectedWorkingAreaDistrictsList || []) + ')',
+      appRefId: 'encrypted(' + (data.apprefId?.toString() || '0') + ')',
+      applicationIsLocked: 'encrypted(' + (data.applicationIsLocked === undefined ? false : data.applicationIsLocked).toString() + ')',
+      contractorLicenceId: 'encrypted(' + (data.contractorLicenceId?.toString() || '0') + ')',
+      applicationContractorType: 'encrypted(' + (data.applicationContractorType?.toString() || '3') + ')',
+    });
+
+    // Add renewAppId only if it is defined and not null (Angular exact logic)
+    if (data.renewAppId) {
       queryParams.renewAppId = encryptionService.set(data.renewAppId.toString());
-      console.log('🔐 [PAYLOAD-BUILDER] Added renewAppId to query params');
+      console.log('🔐 [PAYLOAD-BUILDER] Added renewAppId to query params:', 'encrypted(' + data.renewAppId.toString() + ')');
+    } else {
+      console.log('🔐 [PAYLOAD-BUILDER] renewAppId is null/undefined, not adding to query params');
     }
 
-    if (data.is30DaysCrossed !== null && data.is30DaysCrossed !== undefined) {
+    if (data.is30DaysCrossed === true || data.is30DaysCrossed === false) {
       queryParams.is30DaysCrossed = encryptionService.set(data.is30DaysCrossed.toString());
-      console.log('🔐 [PAYLOAD-BUILDER] Added is30DaysCrossed to query params');
+      console.log('🔐 [PAYLOAD-BUILDER] Added is30DaysCrossed to query params:', 'encrypted(' + data.is30DaysCrossed.toString() + ')');
+    } else {
+      console.log('🔐 [PAYLOAD-BUILDER] is30DaysCrossed is undefined, not adding to query params');
     }
     
+    console.log('🔐 [PAYLOAD-BUILDER] Final query params structure:', queryParams);
     console.log('🔐 [PAYLOAD-BUILDER] Final encrypted query params structure created');
     return queryParams;
   }

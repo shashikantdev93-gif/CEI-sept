@@ -119,10 +119,12 @@ export const useSupervisorValidation = () => {
     validateField(fieldName, value, 'wireman');
   }, [validateField]);
 
-  // Certificate validation handlers (matching Angular debounce pattern)
+  // Certificate validation handlers (matching Angular debounce pattern - updated with renewAppId support)
   const handleSupervisorCertificateChange = useCallback((
     licenceNo: string, 
-    isOnlineMode: boolean
+    isOnlineMode: boolean,
+    contractorFormMode: 'new' | 'renew' = 'new',
+    renewAppId?: number
   ) => {
     if (licenceNo.trim()) {
       debouncedValidateSupervisor(licenceNo, isOnlineMode, (result) => {
@@ -161,13 +163,15 @@ export const useSupervisorValidation = () => {
             }));
           }
         }
-      });
+      }, contractorFormMode, renewAppId);
     }
   }, [debouncedValidateSupervisor]);
 
   const handleWiremanCertificateChange = useCallback((
     licenceNo: string, 
-    isOnlineMode: boolean
+    isOnlineMode: boolean,
+    contractorFormMode: 'new' | 'renew' = 'new',
+    renewAppId?: number
   ) => {
     if (licenceNo.trim()) {
       debouncedValidateWireman(licenceNo, isOnlineMode, (result) => {
@@ -206,7 +210,7 @@ export const useSupervisorValidation = () => {
             }));
           }
         }
-      });
+      }, contractorFormMode, renewAppId);
     }
   }, [debouncedValidateWireman]);
 

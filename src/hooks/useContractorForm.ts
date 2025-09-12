@@ -121,6 +121,10 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   // Draft Application State (matches Angular application object)
   const [applicationData, setApplicationData] = useState<any>(null);
   const [hideContractorElementsForLockPage, setHideContractorElementsForLockPage] = useState(false);
+  
+  // ✅ FIX: Project Site extracted IDs (for payload construction)
+  const [projectSiteContractorLicenceId, setProjectSiteContractorLicenceId] = useState<number | undefined>();
+  const [projectSiteApprefId, setProjectSiteApprefId] = useState<number | undefined>();
   const { districts, tehsils, loading, errors: locationErrors, loadDistricts, loadTehsils, resetTehsils } = useLocation();
   const [workingAreaFormErrors, setWorkingAreaFormErrors] = useState<{
     district?: string;
@@ -218,6 +222,17 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       if (contractorData.applicantPAN) {
         setPanCardNumber(contractorData.applicantPAN);
         console.log('✅ [CONTRACTOR-FORM] Applicant PAN auto-filled:', contractorData.applicantPAN);
+      }
+      
+      // ✅ FIX: Capture contractorLicenceId and apprefId from project site data
+      if (contractorData.contractorLicenceId) {
+        setProjectSiteContractorLicenceId(contractorData.contractorLicenceId);
+        console.log('✅ [CONTRACTOR-FORM] ContractorLicenceId captured from project site:', contractorData.contractorLicenceId);
+      }
+      
+      if (contractorData.apprefId) {
+        setProjectSiteApprefId(contractorData.apprefId);
+        console.log('✅ [CONTRACTOR-FORM] ApprefId captured from project site:', contractorData.apprefId);
       }
 
       // ✅ NEW: Extract contractor general details from project site data (PRIMARY SOURCE)
@@ -2295,6 +2310,10 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     setBusinessEntity,
     businessEntityAddress,
     setBusinessEntityAddress,
+
+    // ✅ FIX: Expose IDs with priority: project site data first, then applicationData (Angular parity)
+    contractorLicenceId: projectSiteContractorLicenceId || applicationData?.contractorLicenceId,
+    applicationLicenceId: applicationData?.applicationLicenceId,
     
     // Working Area States (Angular naming: workingAreaList)
     workingOnDistrict, 

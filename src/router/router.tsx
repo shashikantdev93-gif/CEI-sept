@@ -89,6 +89,14 @@ const RouterPage = () => (
         }
       />
       <Route
+        path="/dashboard/license/contractor-supervisor"
+        element={
+          <BaseLayout headerType="Header1">
+            <ContractorSupervisor />
+          </BaseLayout>
+        }
+      />
+      <Route
         path="/dashboard/ProjectDetails/applicationForm/supervisor-registration"
         element={
           <BaseLayout headerType="Header1">

@@ -381,6 +381,8 @@ export class ProjectSiteDataMapper {
     applicantName: string;
     applicantAddress: string;
     applicantPAN: string;
+    contractorLicenceId?: number;
+    apprefId?: number;
   } {
     console.log('📋 [CONTRACTOR-MAPPER] ===== EXTRACTING CONTRACTOR FORM DATA =====');
     console.log('📋 [CONTRACTOR-MAPPER] Input projectSiteData:', projectSiteData);
@@ -388,11 +390,35 @@ export class ProjectSiteDataMapper {
     console.log('📋 [CONTRACTOR-MAPPER] UserProfileMapping:', projectSiteData?.users?.userProfileMapping);
     console.log('📋 [CONTRACTOR-MAPPER] UserProfile:', projectSiteData?.users?.userProfileMapping?.userProfile);
     console.log('📋 [CONTRACTOR-MAPPER] ApplicantPanNumber:', projectSiteData?.applicantPanNumber);
+    console.log('📋 [CONTRACTOR-MAPPER] Applications array:', projectSiteData?.applications);
+    
+    // ✅ FIX: Extract contractorLicenceId from applications array
+    let contractorLicenceId: number | undefined;
+    let apprefId: number | undefined;
+    
+    if (projectSiteData?.applications && projectSiteData.applications.length > 0) {
+      const application = projectSiteData.applications[0]; // Get first application
+      console.log('📋 [CONTRACTOR-MAPPER] First application:', application);
+      console.log('📋 [CONTRACTOR-MAPPER] Application appId:', application?.appId);
+      console.log('📋 [CONTRACTOR-MAPPER] ContractorLicence_GeneralDetails:', application?.contractorLicence_GeneralDetails);
+      
+      if (application?.appId) {
+        apprefId = application.appId;
+        console.log('✅ [CONTRACTOR-MAPPER] Extracted apprefId:', apprefId);
+      }
+      
+      if (application?.contractorLicence_GeneralDetails?.contractorLicenceId) {
+        contractorLicenceId = application.contractorLicence_GeneralDetails.contractorLicenceId;
+        console.log('✅ [CONTRACTOR-MAPPER] Extracted contractorLicenceId:', contractorLicenceId);
+      }
+    }
     
     const result = {
       applicantName: this.getContractorApplicantName(projectSiteData),
       applicantAddress: this.getContractorApplicantAddress(projectSiteData),
-      applicantPAN: this.getContractorApplicantPAN(projectSiteData)
+      applicantPAN: this.getContractorApplicantPAN(projectSiteData),
+      contractorLicenceId,
+      apprefId
     };
     
     console.log('📋 [CONTRACTOR-MAPPER] ===== FINAL EXTRACTED DATA =====');

@@ -112,7 +112,6 @@ const ContractorApplicantDetails: React.FC = () => {
   instrumentTehsil,             
   instruments,
   selectedInstrumentList,
-  instrumentCharacterCount,
   isAddingInstrument,
   instrumentFormErrors,
   
@@ -164,6 +163,10 @@ const ContractorApplicantDetails: React.FC = () => {
 
   // Application management (Angular naming: apprefId)
   apprefId,
+
+  // ✅ FIX: ID fields from applicationData (Angular parity)
+  contractorLicenceId: hookContractorLicenceId,
+  applicationLicenceId,
 
   // Field State Management (Angular parity)
   applicationData,
@@ -243,7 +246,8 @@ const ContractorApplicantDetails: React.FC = () => {
   // ✅ COMPLETE SAVE & NEXT IMPLEMENTATION (Angular Parity)
   const validation = useContractorValidation();
   const [isSaving, setIsSaving] = useState(false);
-  const [contractorLicenceId, setContractorLicenceId] = useState<number | undefined>();
+  // ✅ FIX: Use contractorLicenceId from hook instead of local state (Angular parity)
+  const contractorLicenceId = hookContractorLicenceId;
   const [contractorFormMode] = useState<string>('new'); // TODO: Get from props/context
 
   const handleSaveAndNext = async () => {
@@ -253,6 +257,9 @@ const ContractorApplicantDetails: React.FC = () => {
     console.log('💾 [SAVE_AND_NEXT] Is application locked:', applicationData?.isLocked);
     console.log('💾 [SAVE_AND_NEXT] Current apprefId:', apprefId);
     console.log('💾 [SAVE_AND_NEXT] Current contractorLicenceId:', contractorLicenceId);
+    console.log('💾 [SAVE_AND_NEXT] Current apprefId:', apprefId);
+    console.log('💾 [SAVE_AND_NEXT] Current applicationData:', applicationData);
+    console.log('💾 [SAVE_AND_NEXT] Current draftApplicationId:', draftApplicationId);
     console.log('💾 [SAVE_AND_NEXT] Contract form mode:', contractorFormMode);
     console.log('💾 [SAVE_AND_NEXT] Contractor type:', contractorType);
 
@@ -313,10 +320,16 @@ const ContractorApplicantDetails: React.FC = () => {
       // Step 4: Calculate license validity
       const licenseCalculation = validation.calculateLicenseValidity(currentWorkingVoltage || '1');
 
-      // Step 5: Build contractor payload
+      // Step 5: Build contractor payload (Angular Parity)
+      console.log('🏗️ [SAVE_AND_NEXT] ===== PRE-PAYLOAD DEBUG =====');
+      console.log('🏗️ [SAVE_AND_NEXT] contractorType value:', contractorType);
+      console.log('🏗️ [SAVE_AND_NEXT] currentWorkingVoltage value:', currentWorkingVoltage);
+      console.log('🏗️ [SAVE_AND_NEXT] panCardNumber value:', panCardNumber);
+      console.log('🏗️ [SAVE_AND_NEXT] contractorFormMode value:', contractorFormMode);
+      
       const contractorPayload = ContractorPayloadBuilder.buildContractorPayload({
         contractorLicenceId,
-        apprefId: apprefId || 0,
+        apprefId: draftApplicationId || apprefId || 0,
         contractorType: contractorType || '',
         currentWorkingVoltage: currentWorkingVoltage || '',
         panCardNumber: panCardNumber || '',
@@ -325,92 +338,84 @@ const ContractorApplicantDetails: React.FC = () => {
         businessEntityAddress,
         is30DaysCrossed: false, // TODO: Get from application data
         contractorFormMode,
-        contractorInfo: applicationData // For change detection
+        contractorInfo: applicationData // For change detection and Angular parity
       }, licenseCalculation);
 
-      // Step 6: Primary API call - Save contractor application
-      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING PRIMARY API CALL =====');
+      // Step 6: PRIMARY API CALL ONLY (Angular Parity)
+      // Angular only makes ONE API call in Save & Next flow
+      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING SINGLE API CALL (Angular Parity) =====');
+      console.log('🌐 [SAVE_AND_NEXT] API Controller: ContractorLicence');
+      console.log('🌐 [SAVE_AND_NEXT] API Action: addUpdateContractApplication_GeneralDetails');
+      console.log('🌐 [SAVE_AND_NEXT] Sending payload to backend...');
+      
       const contractorResponse = await userDetailsService.saveContractorApplicationGeneralDetails(contractorPayload);
 
       if (!contractorResponse.success) {
         throw new Error(contractorResponse.error || contractorResponse.message || 'Failed to save contractor application');
       }
 
-      // Step 7: Update contractor licence ID from response
-      const responseContractorLicenceId = contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId;
-      if (responseContractorLicenceId && !contractorLicenceId) {
-        setContractorLicenceId(responseContractorLicenceId);
-        console.log('✅ [SAVE_AND_NEXT] Updated contractorLicenceId:', responseContractorLicenceId);
-      }
+      console.log('✅ [SAVE_AND_NEXT] ===== API RESPONSE RECEIVED =====');
+      console.log('✅ [SAVE_AND_NEXT] API Response Status: SUCCESS');
+      console.log('✅ [SAVE_AND_NEXT] Raw response data:', contractorResponse.data);
 
-      // Step 8: Secondary API call - Application details
-      const applicationDetailsPayload = ContractorPayloadBuilder.buildApplicationDetailsPayload(
-        apprefId || 0,
-        contractorType || '',
-        contractorFormMode,
-        {
-          projectSiteId: 1, // TODO: Get from context
-          userId: 1, // TODO: Get from context
-          userProfileId: 1 // TODO: Get from context
-        },
-        applicationData
+      // Step 7: Extract contractorLicenceId from response (Angular parity)
+      console.log('✅ [SAVE_AND_NEXT] Extracting contractorLicenceId from response...');
+      console.log('✅ [SAVE_AND_NEXT] Current contractorLicenceId:', contractorLicenceId);
+      console.log('✅ [SAVE_AND_NEXT] Response applicationInitiateResponse:', contractorResponse.data?.applicationInitiateResponse);
+      console.log('✅ [SAVE_AND_NEXT] Response applicationLicenceId:', contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId);
+      
+      const responseContractorLicenceId = contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId === 0 
+        ? contractorLicenceId 
+        : contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId;
+        
+      // ✅ FIX: contractorLicenceId is now managed by the hook, no need to set it manually
+      
+      console.log('✅ [SAVE_AND_NEXT] Updated contractorLicenceId:', responseContractorLicenceId);
+
+      // Step 8: Build encrypted query parameters and navigate (Angular Parity)
+      console.log('🏠 [SAVE_AND_NEXT] ===== PREPARING NAVIGATION QUERY PARAMS =====');
+      console.log('🏠 [SAVE_AND_NEXT] Building query parameters for navigation...');
+      
+      // ✅ FIX: Compute selectedWorkingAreaDistrictsList from workingAreaList (Angular parity)
+      const selectedWorkingAreaDistrictsList = Array.from(
+        new Map(
+          (workingAreaList || []).map(area => [
+            area.districtRefId,
+            {
+              districtRefId: area.districtRefId,
+              districtName: area.districtName
+            }
+          ])
+        ).values()
       );
-
-      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING SECONDARY API CALL =====');
-      const applicationDetailsResponse = await userDetailsService.addUpdateApplicationDetails(applicationDetailsPayload);
-
-      if (!applicationDetailsResponse.success) {
-        console.warn('⚠️ [SAVE_AND_NEXT] Application details API warning:', applicationDetailsResponse.error);
-      }
-
-      // Step 9: Tertiary API call - Application action
-      const applicationActionPayload = ContractorPayloadBuilder.buildApplicationActionPayload(
-        apprefId || 0,
-        contractorFormMode,
-        {
-          userId: 1, // TODO: Get from context
-          userProfileId: 1, // TODO: Get from context
-          ipAddress: '127.0.0.1', // TODO: Get client IP
-          latitude: '0', // TODO: Get location
-          longitude: '0' // TODO: Get location
-        },
-        applicationData
-      );
-
-      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING TERTIARY API CALL =====');
-      const applicationActionResponse = await userDetailsService.addUpdateApplicationAction(applicationActionPayload);
-
-      if (!applicationActionResponse.success) {
-        console.warn('⚠️ [SAVE_AND_NEXT] Application action API warning:', applicationActionResponse.error);
-      }
-
-      // Step 10: Build encrypted query parameters and navigate
-      console.log('🏠 [SAVE_AND_NEXT] ===== PREPARING NAVIGATION =====');
+      
+      console.log('🏠 [SAVE_AND_NEXT] Computed selectedWorkingAreaDistrictsList:', selectedWorkingAreaDistrictsList);
+      
+      // Angular exact query parameter structure
       const queryParams = ContractorPayloadBuilder.buildQueryParams({
         workingAreaList: workingAreaList || [],
         contractorFormMode,
-        selectedWorkingAreaDistrictsList: [], // Angular compatibility - computed from workingAreaList
-        apprefId: apprefId || 0,
-        applicationIsLocked: false,
+        selectedWorkingAreaDistrictsList,
+        apprefId: draftApplicationId || apprefId || 0,
+        applicationIsLocked: applicationData?.isLocked || false,
         contractorLicenceId: responseContractorLicenceId || contractorLicenceId || 0,
-        contractorType: contractorType || '',
+        applicationContractorType: contractorType || '', // Angular field name
         renewAppId: null, // TODO: Handle renewal case
         is30DaysCrossed: false // TODO: Handle 30-day logic
       }, encryptionService);
 
-      // Convert query params to URL search string
-      const searchParams = new URLSearchParams(queryParams);
+      console.log('🏠 [SAVE_AND_NEXT] Base query params prepared');
+      console.log('🏠 [SAVE_AND_NEXT] Final query params structure:', queryParams);
+      console.log('🏠 [SAVE_AND_NEXT] ===== NAVIGATING TO CONTRACTOR SUPERVISOR =====');
+      console.log('🏠 [SAVE_AND_NEXT] Navigation target: /dashboard/license/contractor-supervisor');
 
-      console.log('🏠 [SAVE_AND_NEXT] Navigation target: /contractor-supervisor');
+      // Angular exact navigation path
+      const searchParams = new URLSearchParams(queryParams);
+      
       console.log('✅ [SAVE_AND_NEXT] ===== FUNCTION COMPLETED SUCCESSFULLY =====');
 
-      // Show success message
-      setSaveSuccess('Application saved successfully!');
-
-      // Navigate to supervisor page
-      setTimeout(() => {
-        navigate(`/contractor-supervisor?${searchParams.toString()}`);
-      }, 1000);
+      // Navigate to supervisor page (Angular exact path - no success message, direct navigation)
+      navigate(`/dashboard/license/contractor-supervisor?${searchParams.toString()}`);
 
     } catch (error: any) {
       console.error('❌ [SAVE_AND_NEXT] Error occurred:', error);
@@ -424,22 +429,23 @@ const ContractorApplicantDetails: React.FC = () => {
    * Handle locked application navigation (Angular parity)
    */
   const handleLockedApplicationNavigation = () => {
-    console.log('🔒 [SAVE_AND_NEXT] Handling locked application navigation');
+    console.log('🔒 [SAVE_AND_NEXT] Handling locked application navigation (Angular Parity)');
     
     const queryParams = ContractorPayloadBuilder.buildQueryParams({
       workingAreaList: workingAreaList || [],
       contractorFormMode,
       selectedWorkingAreaDistrictsList: [], // Angular compatibility - computed from workingAreaList
-      apprefId: apprefId || 0,
+      apprefId: draftApplicationId || apprefId || 0,
       applicationIsLocked: true,
       contractorLicenceId: contractorLicenceId || 0,
-      contractorType: contractorType || '',
+      applicationContractorType: contractorType || '', // Angular field name
       renewAppId: null,
       is30DaysCrossed: false
     }, encryptionService);
 
     const searchParams = new URLSearchParams(queryParams);
-    navigate(`/contractor-supervisor?${searchParams.toString()}`);
+    // Angular exact navigation path
+    navigate(`/dashboard/license/contractor-supervisor?${searchParams.toString()}`);
   };
 
   const steps = [
@@ -1377,7 +1383,7 @@ const ContractorApplicantDetails: React.FC = () => {
                 variant="primary" 
                 onClick={handleSaveAndNext}
                 className="btn-custom"
-                disabled={isSaving || areFieldsDisabled}
+                disabled={isSaving}
               >
                 {isSaving ? (
                   <>

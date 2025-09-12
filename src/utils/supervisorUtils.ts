@@ -8,6 +8,30 @@ import { EMPTY_SUPERVISOR_FORM, EMPTY_WIREMAN_FORM } from '../constants/supervis
  * Helper functions for data transformation, validation, and form management
  */
 
+// Format date to readable format (e.g., "Jan 9, 1995")
+export const formatDateForDisplay = (dateString: string): string => {
+  if (!dateString) return '';
+  
+  try {
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return dateString; // Return original string if invalid
+    }
+    
+    // Format to "MMM D, YYYY" (e.g., "Jan 9, 1995")
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    console.warn('⚠️ [formatDateForDisplay] Error formatting date:', dateString, error);
+    return dateString; // Return original string if error
+  }
+};
+
 // Transform form data to supervisor data
 export const transformSupervisorFormToData = (
   formData: SupervisorFormData,
@@ -87,6 +111,7 @@ export const isLicenceExpired = (validUpto: string): boolean => {
 };
 
 // Format supervisor data for DataTable display
+// Format supervisor data for DataTable display
 export const formatSupervisorForTable = (supervisors: SupervisorData[]) => {
   return supervisors.map((supervisor, index) => ({
     'S.No.': index + 1,
@@ -94,7 +119,7 @@ export const formatSupervisorForTable = (supervisors: SupervisorData[]) => {
     'Certificate Number': supervisor.licenceNo,
     District: supervisor.districtName,
     Tehsil: supervisor.tehsilName,
-    'Valid Upto': supervisor.licenceValidUpto,
+    'Valid Upto': formatDateForDisplay(supervisor.licenceValidUpto),
     Online: supervisor.isOnline ? 'Yes' : 'No',
     Action: 'Delete',
     id: supervisor.id,
@@ -110,7 +135,7 @@ export const formatWiremanForTable = (wiremen: WiremanData[]) => {
     'Permit Number': wireman.licenceNo,
     District: wireman.districtName,
     Tehsil: wireman.tehsilName,
-    'Valid Upto': wireman.licenceValidUpto,
+    'Valid Upto': formatDateForDisplay(wireman.licenceValidUpto),
     Online: wireman.isOnline ? 'Yes' : 'No',
     Action: 'Delete',
     id: wireman.id,

@@ -5,6 +5,8 @@
  * matching Angular regex_validation.ts patterns
  */
 
+import type { SupervisorFormData, WiremanFormData } from '../types/supervisor.types';
+
 // Angular regex patterns (from regex_validation.ts)
 export const SUPERVISOR_VALIDATION_PATTERNS = {
   PAN: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
@@ -49,7 +51,7 @@ export const WIREMAN_FORM_FIELDS = {
 } as const;
 
 // Default form states
-export const EMPTY_SUPERVISOR_FORM = {
+export const EMPTY_SUPERVISOR_FORM: SupervisorFormData = {
   fullName: '',
   licenceNo: '',
   licenceValidUpto: '',
@@ -58,9 +60,9 @@ export const EMPTY_SUPERVISOR_FORM = {
   panNoDocument: '',
   districtRefId: '',
   tehsilRefId: ''
-} as const;
+};
 
-export const EMPTY_WIREMAN_FORM = {
+export const EMPTY_WIREMAN_FORM: WiremanFormData = {
   fullName: '',
   licenceNo: '',
   licenceValidUpto: '',
@@ -69,4 +71,4 @@ export const EMPTY_WIREMAN_FORM = {
   panNoDocument: '',
   districtRefId: '',
   tehsilRefId: ''
-} as const;
+};

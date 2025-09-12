@@ -1,53 +1,134 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
 import FormField from '../../components/shared-component/FormField';
 import DataTable from '../../components/shared-component/DataTable';
 import LoadingButton from '../../components/shared-component/LoadingButton';
 import FileUpload from '../../components/FileUpload';
-import { useLocation } from '../../hooks/useLocation';
 import { useContractorForm } from '../../hooks/useContractorForm';
 import { useSupervisorValidation } from '../../hooks/useSupervisorValidation';
 import { useSupervisorData } from '../../hooks/useSupervisorData';
 import { useSupervisorPageData } from '../../hooks/contractor/useSupervisorPageData';
+import encryptionService from '../../lib/encryptionService';
+import { userDetailsService } from '../../services/api/userDetailsService';
+import { ContractorPayloadBuilder } from '../../services/contractorPayloadBuilder';
+import SweetAlert from 'sweetalert2';
 import { 
   transformSupervisorFormToData, 
   transformWiremanFormToData,
   formatSupervisorForTable,
   formatWiremanForTable,
   getSuccessMessage,
-  getErrorMessage,
-  clearFormForOnlineMode
+  getErrorMessage
 } from '../../utils/supervisorUtils';
+import { EMPTY_SUPERVISOR_FORM, EMPTY_WIREMAN_FORM } from '../../constants/supervisor';
 
 const ContractorSupervisor: React.FC = () => {
   const navigate = useNavigate();
+  const location = useRouterLocation();
   
-  // Page-level data loading and management
-  const {
-    supervisors,
-    wiremans,
-    contractorData,
-    totalSupervisors,
-    totalWiremans,
-    maxSupervisors,
-    maxWiremans,
-    appRefId,
-    isLoading: isPageLoading,
-    hasExpiredSupervisors,
-    hasExpiredWiremans,
-    loadData,
-    refreshData,
-    checkExpiryStatus
-  } = useSupervisorPageData();
+  // Refs for input focus (Angular parity)
+  const supervisorCertificateRef = useRef<HTMLInputElement>(null);
+  const wiremanPermitRef = useRef<HTMLInputElement>(null);
   
-  // Application workflow integration (matches Angular supervisor component)
-  const { 
-    apprefId, 
-    ensureApplicationExists
-  } = useContractorForm();
+  // ✅ 1. QUERY PARAMETERS & CONTEXT - Using uniform React patterns
+  const [applicationContext, setApplicationContext] = useState<{
+    workingAreaList: any[];
+    contractorFormMode: string;
+    selectedWorkingAreaDistrictsList: any[];
+    appRefId: number;
+    contractorLicenceId: number;
+    applicationContractorType: string;
+    applicationIsLocked: boolean;
+    renewAppId?: number;
+    is30DaysCrossed?: boolean;
+  } | null>(null);
   
-  // Custom hooks for validation and data management
+  // Processing states
+  const [existingSupervisorsFromAPI, setExistingSupervisorsFromAPI] = useState<any[]>([]);
+  const [existingWiremansFromAPI, setExistingWiremansFromAPI] = useState<any[]>([]);
+  
+  // ✅ Query Parameter Processing (Angular Constructor Equivalent)
+  useEffect(() => {
+    console.log('🔄 [SUPERVISOR-INIT] ===== PROCESSING QUERY PARAMETERS =====');
+    const urlParams = new URLSearchParams(location.search);
+    
+    try {
+      // Decrypt and parse all query parameters (Angular parity)
+      const encryptedWorkingAreaList = urlParams.get('workingAreaList');
+      const encryptedFormMode = urlParams.get('formMode');
+      const encryptedSelectedDistricts = urlParams.get('selectedWorkingAreaDistrictsList');
+      const encryptedAppRefId = urlParams.get('appRefId');
+      const encryptedContractorLicenceId = urlParams.get('contractorLicenceId');
+      const encryptedApplicationContractorType = urlParams.get('applicationContractorType');
+      const encryptedApplicationIsLocked = urlParams.get('applicationIsLocked');
+      const encryptedRenewAppId = urlParams.get('renewAppId');
+      const encryptedIs30DaysCrossed = urlParams.get('is30DaysCrossed');
+      
+      if (!encryptedWorkingAreaList || !encryptedFormMode || !encryptedAppRefId) {
+        console.error('❌ [SUPERVISOR-INIT] Missing required encrypted parameters');
+        SweetAlert.fire({
+          title: 'Invalid Navigation',
+          text: 'Missing required application data. Redirecting to contractor info.',
+          icon: 'error'
+        }).then(() => {
+          navigate('/dashboard/license/contractor-info');
+        });
+        return;
+      }
+      
+      // Decrypt parameters with null safety
+      const workingAreaList = JSON.parse(encryptionService.get(encryptedWorkingAreaList));
+      const contractorFormMode = encryptionService.get(encryptedFormMode);
+      const selectedWorkingAreaDistrictsList = encryptedSelectedDistricts ? JSON.parse(encryptionService.get(encryptedSelectedDistricts)) : [];
+      const appRefId = parseInt(encryptionService.get(encryptedAppRefId));
+      const contractorLicenceId = encryptedContractorLicenceId ? parseInt(encryptionService.get(encryptedContractorLicenceId)) : 0;
+      const applicationContractorType = encryptedApplicationContractorType ? encryptionService.get(encryptedApplicationContractorType) : '';
+      const applicationIsLocked = encryptedApplicationIsLocked ? JSON.parse(encryptionService.get(encryptedApplicationIsLocked)) : false;
+      const renewAppId = encryptedRenewAppId ? parseInt(encryptionService.get(encryptedRenewAppId)) : undefined;
+      const is30DaysCrossed = encryptedIs30DaysCrossed ? JSON.parse(encryptionService.get(encryptedIs30DaysCrossed)) : undefined;
+      
+      // Validation: Form mode must be 'new' or 'renew' (Angular validation)
+      if (!contractorFormMode || !['new', 'renew'].includes(contractorFormMode)) {
+        console.error('❌ [SUPERVISOR-INIT] Invalid contractorFormMode:', contractorFormMode);
+        SweetAlert.fire({
+          title: 'Invalid Application Mode',
+          text: 'Invalid contractor form mode. Redirecting to contractor info.',
+          icon: 'error'
+        }).then(() => {
+          navigate('/dashboard/license/contractor-info');
+        });
+        return;
+      }
+      
+      // Set application context
+      setApplicationContext({
+        workingAreaList,
+        contractorFormMode,
+        selectedWorkingAreaDistrictsList,
+        appRefId,
+        contractorLicenceId,
+        applicationContractorType,
+        applicationIsLocked,
+        renewAppId,
+        is30DaysCrossed
+      });
+      
+      console.log('✅ [SUPERVISOR-INIT] Application context set successfully');
+      
+    } catch (error) {
+      console.error('❌ [SUPERVISOR-INIT] Error processing query parameters:', error);
+      SweetAlert.fire({
+        title: 'Parameter Processing Error',
+        text: 'Failed to process application data. Redirecting to contractor info.',
+        icon: 'error'
+      }).then(() => {
+        navigate('/dashboard/license/contractor-info');
+      });
+    }
+  }, [location.search, navigate]);
+  
+  // ✅ 2. FORM SETUP & VALIDATION - Using custom hook useSupervisorValidation
   const {
     supervisorForm,
     wiremanForm,
@@ -67,13 +148,11 @@ const ContractorSupervisor: React.FC = () => {
     resetWiremanForm,
     clearSupervisorOnlineErrors,
     clearWiremanOnlineErrors,
-    validateField,
-    workingAreaLogic
+    validateField
   } = useSupervisorValidation();
 
+  // Data management hooks
   const {
-    supervisorsList: existingSupervisorsList,
-    wiremansList: existingWiremansList,
     isAddingSupervisor,
     isAddingWireman,
     setIsAddingSupervisor,
@@ -84,11 +163,36 @@ const ContractorSupervisor: React.FC = () => {
     deleteWireman
   } = useSupervisorData();
 
-  // Use page data or fallback to local data
-  const supervisorsList = supervisors.length > 0 ? supervisors : existingSupervisorsList;
-  const wiremansList = wiremans.length > 0 ? wiremans : existingWiremansList;
+  // Page-level data management
+  const {
+    totalSupervisors,
+    totalWiremans,
+    maxSupervisors,
+    maxWiremans,
+    isLoading: isPageLoading,
+    hasExpiredSupervisors,
+    hasExpiredWiremans,
+    refreshData,
+    checkExpiryStatus
+  } = useSupervisorPageData();
 
-  // Mode toggles (offline/online)
+  // Application workflow integration
+  const { 
+    apprefId, 
+    ensureApplicationExists
+  } = useContractorForm();
+
+  // Use API data exclusively - Remove static data fallback
+  const supervisorsList = existingSupervisorsFromAPI;
+  const wiremansList = existingWiremansFromAPI;
+  
+  // Debug: Log the actual data being used in tables
+  console.log('📊 [TABLE-DATA] Supervisors for table display:', supervisorsList);
+  console.log('📊 [TABLE-DATA] Wiremans for table display:', wiremansList);
+  console.log('🏗️ [DISTRICT-DATA] Available districts:', applicationContext?.selectedWorkingAreaDistrictsList);
+  console.log('🏗️ [WORKING-AREA-DATA] Working area list:', applicationContext?.workingAreaList);
+
+  // ✅ 3. OFFLINE/ONLINE TOGGLE - Following existing mode-switch pattern
   const [isSupervisorOffline, setIsSupervisorOffline] = useState(true);
   const [isWiremanOffline, setIsWiremanOffline] = useState(true);
   
@@ -96,41 +200,104 @@ const ContractorSupervisor: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   
-  // Location hook for districts and tehsils
-  const { 
-    districts, 
-    tehsils, 
-    loadDistricts, 
-    loadTehsils, 
-    resetTehsils 
-  } = useLocation();
-
-  // Load initial data
+  // ✅ Load Existing Supervisor/Wireman Data (Angular ngAfterViewInit equivalent)
   useEffect(() => {
-    // Load districts for Punjab state (ID: 3)
-    loadDistricts(3);
-  }, [loadDistricts]);
+    if (!applicationContext?.appRefId) return;
+    
+    const loadExistingSupervisorWiremanData = async () => {
+      console.log('📊 [SUPERVISOR-DATA] ===== LOADING EXISTING DATA =====');
+      console.log('📊 [SUPERVISOR-DATA] AppRefId:', applicationContext.appRefId);
+      
+      try {
+        const response = await userDetailsService.getContractorWorkerDetails(applicationContext.appRefId);
+        
+        if (response.success && response.data?.formModel?.[0]) {
+          const data = response.data.formModel[0];
+          console.log('📊 [SUPERVISOR-DATA] Raw API response:', data);
+          
+          // ✅ 7. LICENSE EXPIRY VALIDATION - Load existing supervisors with license expiry validation
+          const existingSupervisors = data.supervisorLicence_Backlog || [];
+          const validatedSupervisors = validateLicenseExpiry(existingSupervisors, 'supervisor');
+          setExistingSupervisorsFromAPI(validatedSupervisors);
+          console.log('✅ [SUPERVISOR-DATA] Loaded supervisors:', validatedSupervisors.length);
+          
+          // Load existing wiremans with license expiry validation  
+          const existingWiremans = data.wiremanLicence_BackLog || [];
+          const validatedWiremans = validateLicenseExpiry(existingWiremans, 'wireman');
+          setExistingWiremansFromAPI(validatedWiremans);
+          console.log('✅ [SUPERVISOR-DATA] Loaded wiremans:', validatedWiremans.length);
+          
+        } else {
+          console.log('⚠️ [SUPERVISOR-DATA] No existing data found for appRefId:', applicationContext.appRefId);
+        }
+      } catch (error) {
+        console.error('❌ [SUPERVISOR-DATA] Error loading existing data:', error);
+        SweetAlert.fire({
+          title: 'Data Loading Error',
+          text: 'Failed to load existing supervisor/wireman data.',
+          icon: 'error'
+        });
+      }
+    };
+    
+    loadExistingSupervisorWiremanData();
+  }, [applicationContext?.appRefId]);
+  
+  // ✅ 7. LICENSE EXPIRY VALIDATION - Offline: local date comparison, Online: live API validation
+  const validateLicenseExpiry = (licenseList: any[], type: 'supervisor' | 'wireman') => {
+    return licenseList.map(license => {
+      if (!license.isOnline) {
+        // Offline license - check expiry date
+        const expiryDate = new Date(license.licenceValidUpto);
+        const today = new Date();
+        expiryDate.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        license.licenceExpired = expiryDate < today;
+        console.log(`📅 [LICENSE-CHECK] ${type} ${license.licenceNo}: ${license.licenceExpired ? 'EXPIRED' : 'VALID'}`);
+      } else {
+        // Online license validation would require API call (implemented in certificate validation hook)
+        console.log(`🌐 [LICENSE-CHECK] ${type} ${license.licenceNo}: Online license (requires API validation)`);
+      }
+      return license;
+    });
+  };
 
-  // Supervisor mode change handler
+  // ✅ 3. OFFLINE/ONLINE TOGGLE - Mode change handlers with field enable/disable
   const handleSupervisorModeChange = (isOffline: boolean) => {
     setIsSupervisorOffline(isOffline);
+    
+    // Angular parity: Reset form fields for both modes
+    setSupervisorForm({ ...EMPTY_SUPERVISOR_FORM });
+    
+    // Clear validation errors
+    clearSupervisorOnlineErrors();
+    
     if (!isOffline) {
-      // Clear fields that will be auto-filled for online mode
-      setSupervisorForm(prev => clearFormForOnlineMode(prev));
-      clearSupervisorOnlineErrors();
+      // Online mode: focus certificate input (Angular parity)
+      setTimeout(() => {
+        supervisorCertificateRef.current?.focus();
+      }, 100);
     }
   };
 
-  // Wireman mode change handler
   const handleWiremanModeChange = (isOffline: boolean) => {
     setIsWiremanOffline(isOffline);
+    
+    // Angular parity: Reset form fields for both modes
+    setWiremanForm({ ...EMPTY_WIREMAN_FORM });
+    
+    // Clear validation errors
+    clearWiremanOnlineErrors();
+    
     if (!isOffline) {
-      // Clear fields that will be auto-filled for online mode
-      setWiremanForm(prev => clearFormForOnlineMode(prev));
-      clearWiremanOnlineErrors();
+      // Online mode: focus permit input (Angular parity)
+      setTimeout(() => {
+        wiremanPermitRef.current?.focus();
+      }, 100);
     }
   };
 
+  // ✅ 4. DISTRICT/TEHSIL RESTRICTION - District change handlers using working area filtering
   const handleSupervisorDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const districtId = e.target.value;
     setSupervisorForm(prev => ({
@@ -139,18 +306,6 @@ const ContractorSupervisor: React.FC = () => {
       tehsilRefId: ''
     }));
     validateField('districtRefId', districtId, 'supervisor');
-    
-    // Working area logic: Load tehsils for this district from working areas
-    if (districtId) {
-      const filteredTehsils = workingAreaLogic.getAllWorkingTehsils(Number(districtId));
-      console.log('🏘️ [SUPERVISOR] Available working area tehsils for district', districtId, ':', filteredTehsils.length);
-      // Fallback to load all tehsils if working area logic doesn't return enough
-      if (filteredTehsils.length === 0) {
-        loadTehsils(Number(districtId));
-      }
-    } else {
-      resetTehsils();
-    }
   };
 
   const handleWiremanDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -161,29 +316,23 @@ const ContractorSupervisor: React.FC = () => {
       tehsilRefId: ''
     }));
     validateField('districtRefId', districtId, 'wireman');
-    
-    // Working area logic: Load tehsils for this district from working areas
-    if (districtId) {
-      const filteredTehsils = workingAreaLogic.getAllWorkingTehsils(Number(districtId));
-      console.log('🏘️ [WIREMAN] Available working area tehsils for district', districtId, ':', filteredTehsils.length);
-      // Fallback to load all tehsils if working area logic doesn't return enough
-      if (filteredTehsils.length === 0) {
-        loadTehsils(Number(districtId));
-      }
-    } else {
-      resetTehsils();
-    }
   };
 
-  // File upload handlers (dummy implementation)
+  // ✅ 5. FILE UPLOAD - Reuse FileUpload component with consistent state update
   const handleSupervisorFileUpload = (info: { formControlName: string; serverResponse: any }) => {
-    // TODO: Handle file upload for supervisor documents
-    console.log('Supervisor file uploaded:', info);
+    setSupervisorForm(prev => ({
+      ...prev,
+      [info.formControlName]: info.serverResponse.generatedFileNames
+    }));
+    console.log('✅ [FILE-UPLOAD] Supervisor file uploaded:', info.formControlName);
   };
 
   const handleWiremanFileUpload = (info: { formControlName: string; serverResponse: any }) => {
-    // TODO: Handle file upload for wireman documents
-    console.log('Wireman file uploaded:', info);
+    setWiremanForm(prev => ({
+      ...prev,
+      [info.formControlName]: info.serverResponse.generatedFileNames
+    }));
+    console.log('✅ [FILE-UPLOAD] Wireman file uploaded:', info.formControlName);
   };
 
   // Add supervisor handler
@@ -194,19 +343,18 @@ const ContractorSupervisor: React.FC = () => {
       return;
     }
     
-    // Step 1.5: Check for duplicate working area (Angular parity)
+    // Check for duplicate working area (Angular parity)
     const districtRefId = Number(supervisorForm.districtRefId);
     const tehsilRefId = Number(supervisorForm.tehsilRefId);
     
     if (districtRefId && tehsilRefId) {
-      const isDuplicate = workingAreaLogic.checkDuplicateSupervisor(
-        districtRefId, 
-        tehsilRefId, 
-        supervisorsList
+      // Check for duplicate supervisor in same working area
+      const isDuplicate = supervisorsList.some(supervisor => 
+        supervisor.districtRefId === districtRefId && supervisor.tehsilRefId === tehsilRefId
       );
       
       if (isDuplicate) {
-        setSaveError('Oops! You had already added a supervisor for same working area');
+        SweetAlert.fire({ icon: 'error', text: "Oops! You had already added a supervisor for same working area" });
         return;
       }
     }
@@ -215,41 +363,40 @@ const ContractorSupervisor: React.FC = () => {
     setSaveError(null);
     
     try {
-      // Step 1: Ensure application exists (matching Angular pattern)
-      let currentApprefId = apprefId;
+      // Ensure application exists (matching Angular pattern)
+      let currentApprefId = applicationContext?.appRefId || apprefId;
       if (!currentApprefId || currentApprefId === 0) {
         console.log('🏗️ [SUPERVISOR] apprefId is 0, creating application details first');
-        try {
-          currentApprefId = await ensureApplicationExists();
-          if (!currentApprefId) {
-            throw new Error('Failed to create application details');
-          }
-        } catch (error) {
-          console.error('❌ [SUPERVISOR] Error in ensureApplicationExists:', error);
-          setSaveError('Failed to create application details. Please try again.');
-          return;
+        currentApprefId = await ensureApplicationExists();
+        if (!currentApprefId) {
+          throw new Error('Failed to create application details');
         }
       }
 
-      console.log('🏗️ [SUPERVISOR] Using apprefId:', currentApprefId);
-
-      // Step 2: Transform form data to supervisor data
+      // Transform form data and add supervisor
       const supervisorData = transformSupervisorFormToData(
         supervisorForm,
-        districts,
-        tehsils,
+        applicationContext?.selectedWorkingAreaDistrictsList?.map(district => ({
+          districtCode: district.districtRefId,
+          districtName: district.districtName || '',
+          stateId: 1 // Default state ID
+        })) || [],
+        applicationContext?.workingAreaList
+          ?.filter(area => area.districtRefId === Number(supervisorForm.districtRefId))
+          ?.map(tehsil => ({
+            tehsilId: tehsil.tehsilRefId,
+            tehsilName: tehsil.tehsilName,
+            districtId: tehsil.districtRefId
+          })) || [],
         !isSupervisorOffline,
-        currentApprefId // Use the ensured apprefId
+        applicationContext?.contractorLicenceId || 0
       );
       
-      // Step 3: Add supervisor
-      addSupervisor(supervisorData);
+      await addSupervisor(supervisorData);
       
-      // Step 4: Reset form and show success
+      // Reset form and show success
       resetSupervisorForm();
       setSaveSuccess(getSuccessMessage('supervisor', 'add'));
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setSaveSuccess(null), 3000);
     } catch (error) {
       console.error('❌ [SUPERVISOR] Error adding supervisor:', error);
@@ -267,19 +414,18 @@ const ContractorSupervisor: React.FC = () => {
       return;
     }
     
-    // Step 1.5: Check for duplicate working area (Angular parity)
+    // Check for duplicate working area (Angular parity)
     const districtRefId = Number(wiremanForm.districtRefId);
     const tehsilRefId = Number(wiremanForm.tehsilRefId);
     
     if (districtRefId && tehsilRefId) {
-      const isDuplicate = workingAreaLogic.checkDuplicateWireman(
-        districtRefId, 
-        tehsilRefId, 
-        wiremansList
+      // Check for duplicate wireman in same working area
+      const isDuplicate = wiremansList.some(wireman => 
+        wireman.districtRefId === districtRefId && wireman.tehsilRefId === tehsilRefId
       );
       
       if (isDuplicate) {
-        setSaveError('Oops! You had already added a wireman for same working area');
+        SweetAlert.fire({ icon: 'error', text: "Oops! You had already added a wireman for same working area" });
         return;
       }
     }
@@ -288,41 +434,40 @@ const ContractorSupervisor: React.FC = () => {
     setSaveError(null);
     
     try {
-      // Step 1: Ensure application exists (matching Angular pattern)
-      let currentApprefId = apprefId;
+      // Ensure application exists (matching Angular pattern)
+      let currentApprefId = applicationContext?.appRefId || apprefId;
       if (!currentApprefId || currentApprefId === 0) {
         console.log('🏗️ [WIREMAN] apprefId is 0, creating application details first');
-        try {
-          currentApprefId = await ensureApplicationExists();
-          if (!currentApprefId) {
-            throw new Error('Failed to create application details');
-          }
-        } catch (error) {
-          console.error('❌ [WIREMAN] Error in ensureApplicationExists:', error);
-          setSaveError('Failed to create application details. Please try again.');
-          return;
+        currentApprefId = await ensureApplicationExists();
+        if (!currentApprefId) {
+          throw new Error('Failed to create application details');
         }
       }
 
-      console.log('🏗️ [WIREMAN] Using apprefId:', currentApprefId);
-
-      // Step 2: Transform form data to wireman data
+      // Transform form data and add wireman
       const wiremanData = transformWiremanFormToData(
         wiremanForm,
-        districts,
-        tehsils,
+        applicationContext?.selectedWorkingAreaDistrictsList?.map(district => ({
+          districtCode: district.districtRefId,
+          districtName: district.districtName || '',
+          stateId: 1 // Default state ID
+        })) || [],
+        applicationContext?.workingAreaList
+          ?.filter(area => area.districtRefId === Number(wiremanForm.districtRefId))
+          ?.map(tehsil => ({
+            tehsilId: tehsil.tehsilRefId,
+            tehsilName: tehsil.tehsilName,
+            districtId: tehsil.districtRefId
+          })) || [],
         !isWiremanOffline,
-        currentApprefId // Use the ensured apprefId
+        applicationContext?.contractorLicenceId || 0
       );
       
-      // Step 3: Add wireman
-      addWireman(wiremanData);
+      await addWireman(wiremanData);
       
-      // Step 4: Reset form and show success
+      // Reset form and show success
       resetWiremanForm();
       setSaveSuccess(getSuccessMessage('wireman', 'add'));
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setSaveSuccess(null), 3000);
     } catch (error) {
       console.error('❌ [WIREMAN] Error adding wireman:', error);
@@ -334,57 +479,120 @@ const ContractorSupervisor: React.FC = () => {
 
   // Delete handlers
   const handleDeleteSupervisor = (id: number) => {
-    deleteSupervisor(id);
-    setSaveSuccess(getSuccessMessage('supervisor', 'delete'));
-    setTimeout(() => setSaveSuccess(null), 3000);
+    SweetAlert.fire({
+      title: 'Delete Supervisor',
+      text: 'Are you sure you want to delete this supervisor?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteSupervisor(id);
+        setSaveSuccess(getSuccessMessage('supervisor', 'delete'));
+        setTimeout(() => setSaveSuccess(null), 3000);
+      }
+    });
   };
 
   const handleDeleteWireman = (id: number) => {
-    deleteWireman(id);
-    setSaveSuccess(getSuccessMessage('wireman', 'delete'));
-    setTimeout(() => setSaveSuccess(null), 3000);
+    SweetAlert.fire({
+      title: 'Delete Wireman',
+      text: 'Are you sure you want to delete this wireman?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteWireman(id);
+        setSaveSuccess(getSuccessMessage('wireman', 'delete'));
+        setTimeout(() => setSaveSuccess(null), 3000);
+      }
+    });
   };
 
-  // Save and Next handler (Angular parity)
-  const handleSaveAndNext = () => {
+  // ✅ 8. SAVE & NEXT LOGIC - Validate completion requirements and navigate
+  const handleSaveAndNext = async () => {
     console.log('💾 [SAVE_AND_NEXT] Starting validation...');
     
-    // Validate completion requirements using working area logic
-    const validationResult = workingAreaLogic.validateCompletionRequirements(
-      supervisorsList, 
-      wiremansList
-    );
+    // Simple validation: Check if we have at least one supervisor and one wireman
+    const hasValidSupervisors = supervisorsList.length > 0;
+    const hasValidWiremans = wiremansList.length > 0;
+    
+    // Check for expired licenses
+    const expiredSupervisors = supervisorsList.filter(s => s.licenceExpired);
+    const expiredWiremans = wiremansList.filter(w => w.licenceExpired);
+    
+    const validationResult = {
+      isValid: hasValidSupervisors && hasValidWiremans && expiredSupervisors.length === 0 && expiredWiremans.length === 0,
+      message: '',
+      expiredLicences: {
+        supervisors: expiredSupervisors,
+        wiremans: expiredWiremans
+      }
+    };
+    
+    if (!hasValidSupervisors) {
+      validationResult.message = 'At least one supervisor is required';
+    } else if (!hasValidWiremans) {
+      validationResult.message = 'At least one wireman is required';
+    } else if (expiredSupervisors.length > 0 || expiredWiremans.length > 0) {
+      validationResult.message = 'Some licenses have expired';
+    }
     
     console.log('💾 [SAVE_AND_NEXT] Validation result:', validationResult);
     
     if (!validationResult.isValid) {
       console.log('❌ [SAVE_AND_NEXT] Validation failed:', validationResult.message);
-      setSaveError(validationResult.message);
       
-      // Show SweetAlert for better UX (matching Angular)
-      if (validationResult.expiredLicences.supervisors.length > 0 || 
-          validationResult.expiredLicences.wiremans.length > 0) {
-        // Show expired licence details
-        console.log('⚠️ [SAVE_AND_NEXT] Expired licences detected');
+      // Show expired licence details (Angular parity)
+      if (validationResult.expiredLicences?.supervisors?.length > 0 || 
+          validationResult.expiredLicences?.wiremans?.length > 0) {
+        
+        const expiredSupervisorLicences = validationResult.expiredLicences.supervisors;
+        const expiredWiremanLicences = validationResult.expiredLicences.wiremans;
+        
+        const expiredLicencesMessage = `
+          ${expiredSupervisorLicences.length > 0 ? `Expired Supervisor Licences: <b style="color:#034078 ;">${expiredSupervisorLicences.join(', ')}</b>` : ''}
+          <br>
+          ${expiredWiremanLicences.length > 0 ? `Expired Wireman Licences: <b style="color:#034078 ;">${expiredWiremanLicences.join(', ')}</b>` : ''}
+        `;
+
+        SweetAlert.fire({
+          title: "OOPS !",
+          icon: 'error',
+          html: `The following licences have expired:<br><hr>${expiredLicencesMessage}<hr> <br>  <p>Please remove these expired licences and add new one to proceed.</p>`
+        });
+        return;
+      } else {
+        SweetAlert.fire({ icon: 'error', text: validationResult.message });
+        return;
       }
-      
-      return;
     }
     
     console.log('✅ [SAVE_AND_NEXT] Validation passed, navigating to next page');
-    setSaveSuccess('Supervisor and Wireman details saved successfully!');
     
-    // Navigate to next page (matching Angular routing pattern)
-    setTimeout(() => {
-      navigate('/dashboard/ProjectDetails/applicationForm/attachments', {
-        state: {
-          apprefId,
-          supervisorsList,
-          wiremansList,
-          workingAreaList: workingAreaLogic.workingAreaList
-        }
-      });
-    }, 1000);
+    try {
+      // Encrypt & navigate using uniform query param helper (Angular parity)
+      const queryParams = ContractorPayloadBuilder.buildQueryParams({
+        appRefId: applicationContext?.appRefId || apprefId,
+        contractorFormMode: applicationContext?.contractorFormMode || 'new',
+        applicationIsLocked: applicationContext?.applicationIsLocked || false,
+        applicationContractorType: applicationContext?.applicationContractorType || '',
+        renewAppId: applicationContext?.renewAppId,
+        is30DaysCrossed: applicationContext?.is30DaysCrossed
+      }, encryptionService);
+      
+      const queryString = new URLSearchParams(queryParams).toString();
+      navigate(`/dashboard/license/attachments?${queryString}`);
+      
+    } catch (error) {
+      console.error('❌ [SAVE_AND_NEXT] Error building query params:', error);
+      setSaveError('Failed to navigate to next page. Please try again.');
+    }
   };
 
   return (
@@ -580,8 +788,10 @@ const ContractorSupervisor: React.FC = () => {
                     value={supervisorForm.licenceNo}
                     onChange={(value) => {
                       handleSupervisorFieldChange('licenceNo', value);
-                      // Trigger certificate validation with debounce
-                      handleSupervisorCertificateChange(value, !isSupervisorOffline);
+                      // Trigger certificate validation with debounce (Angular parity)
+                      const contractorFormMode = applicationContext?.contractorFormMode === 'renew' ? 'renew' : 'new';
+                      const renewAppId = applicationContext?.renewAppId;
+                      handleSupervisorCertificateChange(value, !isSupervisorOffline, contractorFormMode, renewAppId);
                     }}
                     placeholder="Enter certificate number"
                     required
@@ -665,7 +875,7 @@ const ContractorSupervisor: React.FC = () => {
                     required
                   >
                     <option value="">-select-</option>
-                    {workingAreaLogic.availableDistricts.map(district => (
+                    {applicationContext?.selectedWorkingAreaDistrictsList?.map(district => (
                       <option key={district.districtRefId} value={district.districtRefId}>
                         {district.districtName}
                       </option>
@@ -693,7 +903,9 @@ const ContractorSupervisor: React.FC = () => {
                   >
                     <option value="">-select-</option>
                     {supervisorForm.districtRefId && 
-                      workingAreaLogic.getAllWorkingTehsils(Number(supervisorForm.districtRefId)).map(tehsil => (
+                      applicationContext?.workingAreaList
+                        ?.filter(area => area.districtRefId === Number(supervisorForm.districtRefId))
+                        ?.map(tehsil => (
                         <option key={tehsil.tehsilRefId} value={tehsil.tehsilRefId}>
                           {tehsil.tehsilName}
                         </option>
@@ -797,8 +1009,10 @@ const ContractorSupervisor: React.FC = () => {
                     value={wiremanForm.licenceNo}
                     onChange={(value) => {
                       handleWiremanFieldChange('licenceNo', value);
-                      // Trigger certificate validation with debounce
-                      handleWiremanCertificateChange(value, !isWiremanOffline);
+                      // Trigger certificate validation with debounce (Angular parity)
+                      const contractorFormMode = applicationContext?.contractorFormMode === 'renew' ? 'renew' : 'new';
+                      const renewAppId = applicationContext?.renewAppId;
+                      handleWiremanCertificateChange(value, !isWiremanOffline, contractorFormMode, renewAppId);
                     }}
                     placeholder="Enter permit number"
                     required
@@ -882,7 +1096,7 @@ const ContractorSupervisor: React.FC = () => {
                     required
                   >
                     <option value="">-select-</option>
-                    {workingAreaLogic.availableDistricts.map(district => (
+                    {applicationContext?.selectedWorkingAreaDistrictsList?.map(district => (
                       <option key={district.districtRefId} value={district.districtRefId}>
                         {district.districtName}
                       </option>
@@ -910,7 +1124,9 @@ const ContractorSupervisor: React.FC = () => {
                   >
                     <option value="">-select-</option>
                     {wiremanForm.districtRefId && 
-                      workingAreaLogic.getAllWorkingTehsils(Number(wiremanForm.districtRefId)).map(tehsil => (
+                      applicationContext?.workingAreaList
+                        ?.filter(area => area.districtRefId === Number(wiremanForm.districtRefId))
+                        ?.map(tehsil => (
                         <option key={tehsil.tehsilRefId} value={tehsil.tehsilRefId}>
                           {tehsil.tehsilName}
                         </option>
@@ -955,57 +1171,7 @@ const ContractorSupervisor: React.FC = () => {
               </div>
               </Card.Body>
             </Card>
-
-            {/* Working Area Completion Status */}
-            <div className="completion-status mt-4">
-              <Card className="border-0 bg-light">
-                <Card.Body className="p-3">
-                  <h6 className="mb-3 text-primary">
-                    <i className="bi bi-clipboard-check me-2"></i>
-                    Working Area Coverage Status
-                  </h6>
-                  
-                  {workingAreaLogic.isLoading ? (
-                    <div className="text-center py-3">
-                      <i className="fa fa-spinner fa-spin me-2"></i>
-                      Loading working areas...
-                    </div>
-                  ) : workingAreaLogic.error ? (
-                    <div className="alert alert-warning small">
-                      <i className="bi bi-exclamation-triangle me-2"></i>
-                      {workingAreaLogic.error}
-                    </div>
-                  ) : (
-                    <Row className="g-3">
-                      <Col md={4}>
-                        <div className="text-center">
-                          <div className="fs-5 fw-bold text-info">
-                            {workingAreaLogic.workingAreaList.length}
-                          </div>
-                          <div className="small text-muted">Total Working Areas</div>
-                        </div>
-                      </Col>
-                      <Col md={4}>
-                        <div className="text-center">
-                          <div className="fs-5 fw-bold text-success">
-                            {supervisorsList.length}
-                          </div>
-                          <div className="small text-muted">Supervisors Added</div>
-                        </div>
-                      </Col>
-                      <Col md={4}>
-                        <div className="text-center">
-                          <div className="fs-5 fw-bold text-warning">
-                            {wiremansList.length}
-                          </div>
-                          <div className="small text-muted">Wiremans Added</div>
-                        </div>
-                      </Col>
-                    </Row>
-                  )}
-                </Card.Body>
-              </Card>
-            </div>
+         
 
             {/* Navigation Buttons */}
             <div className="navigation-buttons mt-5 d-flex justify-content-between">
