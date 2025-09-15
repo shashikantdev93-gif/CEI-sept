@@ -10,6 +10,7 @@ import ApplicationForm from "../pages/ApplicationForm/ApplicationForm";
 import CommonApplicationFormEstablished from "../pages/common-application-form-established/common-application-form-established";
 import ContractorApplicantDetails from "../pages/Contractor - Applicant Details/ContractorApplicantDetails";
 import ContractorSupervisor from "../pages/contractor-supervisor/contractor-supervisor";
+import ContractorDocuments from "../pages/contractor-documents/contractor-documents";
 import SupervisorRegistration from "../pages/Supervisor Registration/supervisor-registration"; 
 import UploadSupervisorDocument from "../pages/upload-supervisor-document/upload-supervisor-document"; 
 import WiremanInformationNew from "../pages/Wireman Information-New/wireman-information-new";
@@ -93,6 +94,14 @@ const RouterPage = () => (
         element={
           <BaseLayout headerType="Header1">
             <ContractorSupervisor />
+          </BaseLayout>
+        }
+      />
+      <Route
+        path="/dashboard/license/attachments"
+        element={
+          <BaseLayout headerType="Header1">
+            <ContractorDocuments />
           </BaseLayout>
         }
       />

@@ -96,6 +96,20 @@ export const useSupervisorValidation = () => {
           error = SUPERVISOR_VALIDATION_MESSAGES.TEHSIL_REQUIRED;
         }
         break;
+        
+      case 'licenceDocument':
+        const licenceDocCheck = FormValidators.required(value);
+        if (!licenceDocCheck.isValid) {
+          error = 'License document is required';
+        }
+        break;
+        
+      case 'panNoDocument':
+        const panDocCheck = FormValidators.required(value);
+        if (!panDocCheck.isValid) {
+          error = 'PAN document is required';
+        }
+        break;
     }
     
     // Update error state

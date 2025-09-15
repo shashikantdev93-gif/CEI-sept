@@ -243,4 +243,77 @@ export class ContractorPayloadBuilder {
     console.log('🔐 [PAYLOAD-BUILDER] Final encrypted query params structure created');
     return queryParams;
   }
+
+  /**
+   * Build Save & Next query parameters with Angular compatibility for attachments component
+   * Used specifically for navigation from Supervisor page to attachments page
+   */
+  static buildSaveAndNextQueryParams(
+    data: any,
+    encryptionService: any
+  ): Record<string, string> {
+    console.log('🔐 [PAYLOAD-BUILDER] Building Save & Next encrypted query parameters (Angular attachments compatibility)');
+    
+    // Angular attachments component expected parameter names and structure
+    const queryParams: Record<string, string> = {
+      // Core application data (Angular format)
+      appRefId: encryptionService.set(data.appRefId?.toString() || '0'),
+      
+      // Form mode: '1' for new, '2' for edit (Angular attachments expects this format)
+      formMode: encryptionService.set(data.contractorFormMode === 'new' ? '1' : '2'),
+      
+      // Application type: always '6' for contractor applications (Angular requirement)
+      applicationType: encryptionService.set('6'),
+      
+      // Contractor type (Angular format)
+      applicationContractorType: encryptionService.set(data.applicationContractorType?.toString() || ''),
+      
+      // Application state (Angular expects 'isFormLocked', not 'applicationIsLocked')
+      isFormLocked: encryptionService.set((data.applicationIsLocked || false).toString()),
+      
+      // Upload and file management flags (Angular requirements)
+      isUploadShows: encryptionService.set('false'),
+      deleteTempFiles: encryptionService.set('false'),
+      
+      // Stepper state data (Angular requirement - build from React data)
+      appformstep: encryptionService.set(JSON.stringify({
+        isContractorInfo: true,
+        isContractorSupervisor: true,
+        isContractorAttachments: false,
+        isContractorApplicationLock: false,
+        isContractorPayment: false,
+        stepCompleted: {
+          contractorInfo: true,
+          contractorSupervisor: true,
+          contractorAttachments: false,
+          contractorApplicationLock: false,
+          contractorPayment: false
+        }
+      })),
+      
+      // Navigation context (Angular requirement)
+      previousRouteUrl: encryptionService.set('/dashboard/license/contractor-supervisor'),
+    };
+
+    // Optional parameter: is30DaysCrossed
+    if (data.is30DaysCrossed === true || data.is30DaysCrossed === false) {
+      queryParams.is30DaysCrossed = encryptionService.set(data.is30DaysCrossed.toString());
+    }
+
+    console.log('🔐 [PAYLOAD-BUILDER] Save & Next query params prepared:', {
+      appRefId: 'encrypted(' + (data.appRefId?.toString() || '0') + ')',
+      formMode: 'encrypted(' + (data.contractorFormMode === 'new' ? '1' : '2') + ')',
+      applicationType: 'encrypted(6)',
+      applicationContractorType: 'encrypted(' + (data.applicationContractorType?.toString() || '') + ')',
+      isFormLocked: 'encrypted(' + (data.applicationIsLocked || false).toString() + ')',
+      isUploadShows: 'encrypted(false)',
+      deleteTempFiles: 'encrypted(false)',
+      appformstep: 'encrypted(stepper_object)',
+      previousRouteUrl: 'encrypted(/dashboard/license/contractor-supervisor)',
+      is30DaysCrossed: data.is30DaysCrossed !== undefined ? 'encrypted(' + data.is30DaysCrossed.toString() + ')' : 'not included'
+    });
+    
+    console.log('🔐 [PAYLOAD-BUILDER] Save & Next final query params structure created');
+    return queryParams;
+  }
 }

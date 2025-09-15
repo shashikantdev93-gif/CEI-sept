@@ -27,6 +27,7 @@ const UploadData: React.FC<UploadDataProps> = ({
   onRemoveFile,
   disableSubmit,
   onSubmit,
+  onBack,
   title,
   submitLabel = "Submit Uploaded Document & Next"
 }) => (
@@ -99,7 +100,15 @@ const UploadData: React.FC<UploadDataProps> = ({
         </div>
       </div>
       
-        <div className="d-flex justify-content-end mt-4">
+        <div className="d-flex justify-content-between mt-4">
+        <Button 
+            variant="outline-secondary" 
+            onClick={onBack}
+            className="btn-outline-secondary fw-semibold"
+        >
+            <i className="bi bi-arrow-left me-2"></i>
+            Back
+        </Button>
         <Button 
             variant="primary" 
             onClick={onSubmit}

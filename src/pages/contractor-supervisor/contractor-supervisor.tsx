@@ -14,12 +14,10 @@ import { userDetailsService } from '../../services/api/userDetailsService';
 import { ContractorPayloadBuilder } from '../../services/contractorPayloadBuilder';
 import SweetAlert from 'sweetalert2';
 import { 
-  transformSupervisorFormToData, 
-  transformWiremanFormToData,
-  formatSupervisorForTable,
-  formatWiremanForTable,
   getSuccessMessage,
-  getErrorMessage
+  getErrorMessage,
+  formatSupervisorForTable,
+  formatWiremanForTable
 } from '../../utils/supervisorUtils';
 import { EMPTY_SUPERVISOR_FORM, EMPTY_WIREMAN_FORM } from '../../constants/supervisor';
 
@@ -144,8 +142,6 @@ const ContractorSupervisor: React.FC = () => {
     handleWiremanCertificateChange,
     isValidatingSupervisor,
     isValidatingWireman,
-    resetSupervisorForm,
-    resetWiremanForm,
     clearSupervisorOnlineErrors,
     clearWiremanOnlineErrors,
     validateField
@@ -156,11 +152,7 @@ const ContractorSupervisor: React.FC = () => {
     isAddingSupervisor,
     isAddingWireman,
     setIsAddingSupervisor,
-    setIsAddingWireman,
-    addSupervisor,
-    addWireman,
-    deleteSupervisor,
-    deleteWireman
+    setIsAddingWireman
   } = useSupervisorData();
 
   // Page-level data management
@@ -320,35 +312,61 @@ const ContractorSupervisor: React.FC = () => {
 
   // ✅ 5. FILE UPLOAD - Reuse FileUpload component with consistent state update
   const handleSupervisorFileUpload = (info: { formControlName: string; serverResponse: any }) => {
+    console.log('📁 [FILE-UPLOAD] Supervisor file upload info:', info);
+    console.log('📁 [FILE-UPLOAD] Generated file name:', info.serverResponse?.generatedFileNames);
+    
     setSupervisorForm(prev => ({
       ...prev,
-      [info.formControlName]: info.serverResponse.generatedFileNames
+      [info.formControlName]: info.serverResponse.generatedFileNames || ''
     }));
-    console.log('✅ [FILE-UPLOAD] Supervisor file uploaded:', info.formControlName);
+    console.log('✅ [FILE-UPLOAD] Supervisor file uploaded for field:', info.formControlName);
   };
 
   const handleWiremanFileUpload = (info: { formControlName: string; serverResponse: any }) => {
+    console.log('📁 [FILE-UPLOAD] Wireman file upload info:', info);
+    console.log('📁 [FILE-UPLOAD] Generated file name:', info.serverResponse?.generatedFileNames);
+    
     setWiremanForm(prev => ({
       ...prev,
-      [info.formControlName]: info.serverResponse.generatedFileNames
+      [info.formControlName]: info.serverResponse.generatedFileNames || ''
     }));
-    console.log('✅ [FILE-UPLOAD] Wireman file uploaded:', info.formControlName);
+    console.log('✅ [FILE-UPLOAD] Wireman file uploaded for field:', info.formControlName);
   };
 
-  // Add supervisor handler
+  // Add supervisor handler - Angular parity implementation
   const handleAddSupervisor = async () => {
-    // Validate form
-    if (!validateSupervisorForm()) {
+    console.log('🏗️ [SUPERVISOR] Starting addSupervisor - Angular parity');
+    
+    // Step 1: Set form submitted state (Angular parity)
+    const formValid = validateSupervisorForm();
+    if (!formValid) {
+      console.log('❌ [SUPERVISOR] Form validation failed');
       setSaveError('Please fill all required fields correctly');
       return;
     }
     
-    // Check for duplicate working area (Angular parity)
+    // Step 2: Ensure application exists (Angular parity)
+    let currentApprefId = applicationContext?.appRefId || apprefId;
+    if (!currentApprefId || currentApprefId === 0) {
+      console.log('🏗️ [SUPERVISOR] apprefId is 0, creating application details first');
+      try {
+        currentApprefId = await ensureApplicationExists();
+        if (!currentApprefId) {
+          throw new Error('Failed to create application details');
+        }
+        console.log('✅ [SUPERVISOR] Application created with apprefId:', currentApprefId);
+      } catch (error) {
+        console.error('❌ [SUPERVISOR] Error creating application:', error);
+        setSaveError('Failed to create application details');
+        return;
+      }
+    }
+    
+    // Step 3: Check for duplicate working area (Angular parity)
     const districtRefId = Number(supervisorForm.districtRefId);
     const tehsilRefId = Number(supervisorForm.tehsilRefId);
     
     if (districtRefId && tehsilRefId) {
-      // Check for duplicate supervisor in same working area
       const isDuplicate = supervisorsList.some(supervisor => 
         supervisor.districtRefId === districtRefId && supervisor.tehsilRefId === tehsilRefId
       );
@@ -363,41 +381,74 @@ const ContractorSupervisor: React.FC = () => {
     setSaveError(null);
     
     try {
-      // Ensure application exists (matching Angular pattern)
-      let currentApprefId = applicationContext?.appRefId || apprefId;
-      if (!currentApprefId || currentApprefId === 0) {
-        console.log('🏗️ [SUPERVISOR] apprefId is 0, creating application details first');
-        currentApprefId = await ensureApplicationExists();
-        if (!currentApprefId) {
-          throw new Error('Failed to create application details');
+      // Step 4: Build payload exactly like Angular
+      const districtName = applicationContext?.workingAreaList?.find(
+        (element: any) => element.districtRefId === districtRefId
+      )?.districtName || '';
+      
+      const tehsilName = applicationContext?.workingAreaList?.find(
+        (element: any) => element.tehsilRefId === tehsilRefId
+      )?.tehsilName || '';
+      
+      // Debug form state before creating payload
+      console.log('📝 [SUPERVISOR] Current supervisor form state:', supervisorForm);
+      console.log('📁 [SUPERVISOR] Document fields:', {
+        licenceDocument: supervisorForm.licenceDocument,
+        panNoDocument: supervisorForm.panNoDocument
+      });
+      
+      const supervisorPayload = {
+        id: 0,
+        isOnline: !isSupervisorOffline,
+        appRefId: currentApprefId,
+        fullName: supervisorForm.fullName,
+        licenceNo: supervisorForm.licenceNo,
+        licenceValidUpto: new Date(supervisorForm.licenceValidUpto).toISOString(),
+        panNo: supervisorForm.panNo,
+        districtRefId: districtRefId,
+        districtName: districtName,
+        tehsilRefId: tehsilRefId,
+        tehsilName: tehsilName,
+        isActive: true,
+        isDeleted: false,
+        licenceDocument: supervisorForm.licenceDocument,
+        panNoDocument: supervisorForm.panNoDocument,
+        contractorLicenceRefId: applicationContext?.contractorLicenceId || 0
+      };
+      
+      console.log('📤 [SUPERVISOR] Sending payload:', supervisorPayload);
+      
+      // Step 5: Call API (Angular parity)
+      const response = await userDetailsService.addUpdateContractSupervisor(supervisorPayload);
+      
+      if (response.success) {
+        console.log('✅ [SUPERVISOR] Successfully added supervisor');
+        
+        // Step 6: Refresh data (Angular calls getContractorWorkerDetails)
+        // Reload existing data to reflect the new addition
+        try {
+          const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+          if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
+            const data = refreshResponse.data.formModel[0];
+            const existingSupervisors = data.supervisorLicence_Backlog || [];
+            const existingWiremans = data.wiremanLicence_Backlog || [];
+            
+            setExistingSupervisorsFromAPI(existingSupervisors);
+            setExistingWiremansFromAPI(existingWiremans);
+            console.log('🔄 [SUPERVISOR] Data refreshed after supervisor addition');
+          }
+        } catch (refreshError) {
+          console.warn('⚠️ [SUPERVISOR] Could not refresh data:', refreshError);
         }
+        
+        // Step 7: Reset form (Angular parity)
+        setSupervisorForm({ ...EMPTY_SUPERVISOR_FORM });
+        
+        setSaveSuccess(getSuccessMessage('supervisor', 'add'));
+        setTimeout(() => setSaveSuccess(null), 3000);
+      } else {
+        throw new Error(response.message || 'Failed to add supervisor');
       }
-
-      // Transform form data and add supervisor
-      const supervisorData = transformSupervisorFormToData(
-        supervisorForm,
-        applicationContext?.selectedWorkingAreaDistrictsList?.map(district => ({
-          districtCode: district.districtRefId,
-          districtName: district.districtName || '',
-          stateId: 1 // Default state ID
-        })) || [],
-        applicationContext?.workingAreaList
-          ?.filter(area => area.districtRefId === Number(supervisorForm.districtRefId))
-          ?.map(tehsil => ({
-            tehsilId: tehsil.tehsilRefId,
-            tehsilName: tehsil.tehsilName,
-            districtId: tehsil.districtRefId
-          })) || [],
-        !isSupervisorOffline,
-        applicationContext?.contractorLicenceId || 0
-      );
-      
-      await addSupervisor(supervisorData);
-      
-      // Reset form and show success
-      resetSupervisorForm();
-      setSaveSuccess(getSuccessMessage('supervisor', 'add'));
-      setTimeout(() => setSaveSuccess(null), 3000);
     } catch (error) {
       console.error('❌ [SUPERVISOR] Error adding supervisor:', error);
       setSaveError(getErrorMessage('supervisor', 'add'));
@@ -406,20 +457,40 @@ const ContractorSupervisor: React.FC = () => {
     }
   };
 
-  // Add wireman handler
+  // Add wireman handler - Angular parity implementation
   const handleAddWireman = async () => {
-    // Validate form
-    if (!validateWiremanForm()) {
+    console.log('🏗️ [WIREMAN] Starting addWireman - Angular parity');
+    
+    // Step 1: Set form submitted state (Angular parity)
+    const formValid = validateWiremanForm();
+    if (!formValid) {
+      console.log('❌ [WIREMAN] Form validation failed');
       setSaveError('Please fill all required fields correctly');
       return;
     }
     
-    // Check for duplicate working area (Angular parity)
+    // Step 2: Ensure application exists (Angular parity)
+    let currentApprefId = applicationContext?.appRefId || apprefId;
+    if (!currentApprefId || currentApprefId === 0) {
+      console.log('🏗️ [WIREMAN] apprefId is 0, creating application details first');
+      try {
+        currentApprefId = await ensureApplicationExists();
+        if (!currentApprefId) {
+          throw new Error('Failed to create application details');
+        }
+        console.log('✅ [WIREMAN] Application created with apprefId:', currentApprefId);
+      } catch (error) {
+        console.error('❌ [WIREMAN] Error creating application:', error);
+        setSaveError('Failed to create application details');
+        return;
+      }
+    }
+    
+    // Step 3: Check for duplicate working area (Angular parity)
     const districtRefId = Number(wiremanForm.districtRefId);
     const tehsilRefId = Number(wiremanForm.tehsilRefId);
     
     if (districtRefId && tehsilRefId) {
-      // Check for duplicate wireman in same working area
       const isDuplicate = wiremansList.some(wireman => 
         wireman.districtRefId === districtRefId && wireman.tehsilRefId === tehsilRefId
       );
@@ -434,41 +505,73 @@ const ContractorSupervisor: React.FC = () => {
     setSaveError(null);
     
     try {
-      // Ensure application exists (matching Angular pattern)
-      let currentApprefId = applicationContext?.appRefId || apprefId;
-      if (!currentApprefId || currentApprefId === 0) {
-        console.log('🏗️ [WIREMAN] apprefId is 0, creating application details first');
-        currentApprefId = await ensureApplicationExists();
-        if (!currentApprefId) {
-          throw new Error('Failed to create application details');
+      // Step 4: Build payload exactly like Angular
+      const districtName = applicationContext?.workingAreaList?.find(
+        (element: any) => element.districtRefId === districtRefId
+      )?.districtName || '';
+      
+      const tehsilName = applicationContext?.workingAreaList?.find(
+        (element: any) => element.tehsilRefId === tehsilRefId
+      )?.tehsilName || '';
+      
+      // Debug form state before creating payload
+      console.log('📝 [WIREMAN] Current wireman form state:', wiremanForm);
+      console.log('📁 [WIREMAN] Document fields:', {
+        licenceDocument: wiremanForm.licenceDocument,
+        panNoDocument: wiremanForm.panNoDocument
+      });
+      
+      const wiremanPayload = {
+        id: 0,
+        isOnline: !isWiremanOffline,
+        appRefId: currentApprefId,
+        fullName: wiremanForm.fullName,
+        licenceNo: wiremanForm.licenceNo,
+        licenceValidUpto: new Date(wiremanForm.licenceValidUpto).toISOString(),
+        panNo: wiremanForm.panNo,
+        districtRefId: districtRefId,
+        districtName: districtName,
+        tehsilRefId: tehsilRefId,
+        tehsilName: tehsilName,
+        isActive: true,
+        isDeleted: false,
+        licenceDocument: wiremanForm.licenceDocument,
+        panNoDocument: wiremanForm.panNoDocument,
+        contractorLicenceRefId: applicationContext?.contractorLicenceId || 0
+      };
+      
+      console.log('📤 [WIREMAN] Sending payload:', wiremanPayload);
+      
+      // Step 5: Call API (Angular parity)
+      const response = await userDetailsService.addUpdateContractWireman(wiremanPayload);
+      
+      if (response.success) {
+        console.log('✅ [WIREMAN] Successfully added wireman');
+        
+        // Step 6: Refresh data (Angular calls getContractorWorkerDetails)
+        try {
+          const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+          if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
+            const data = refreshResponse.data.formModel[0];
+            const existingSupervisors = data.supervisorLicence_Backlog || [];
+            const existingWiremans = data.wiremanLicence_Backlog || [];
+            
+            setExistingSupervisorsFromAPI(existingSupervisors);
+            setExistingWiremansFromAPI(existingWiremans);
+            console.log('🔄 [WIREMAN] Data refreshed after wireman addition');
+          }
+        } catch (refreshError) {
+          console.warn('⚠️ [WIREMAN] Could not refresh data:', refreshError);
         }
+        
+        // Step 7: Reset form (Angular parity)
+        setWiremanForm({ ...EMPTY_WIREMAN_FORM });
+        
+        setSaveSuccess(getSuccessMessage('wireman', 'add'));
+        setTimeout(() => setSaveSuccess(null), 3000);
+      } else {
+        throw new Error(response.message || 'Failed to add wireman');
       }
-
-      // Transform form data and add wireman
-      const wiremanData = transformWiremanFormToData(
-        wiremanForm,
-        applicationContext?.selectedWorkingAreaDistrictsList?.map(district => ({
-          districtCode: district.districtRefId,
-          districtName: district.districtName || '',
-          stateId: 1 // Default state ID
-        })) || [],
-        applicationContext?.workingAreaList
-          ?.filter(area => area.districtRefId === Number(wiremanForm.districtRefId))
-          ?.map(tehsil => ({
-            tehsilId: tehsil.tehsilRefId,
-            tehsilName: tehsil.tehsilName,
-            districtId: tehsil.districtRefId
-          })) || [],
-        !isWiremanOffline,
-        applicationContext?.contractorLicenceId || 0
-      );
-      
-      await addWireman(wiremanData);
-      
-      // Reset form and show success
-      resetWiremanForm();
-      setSaveSuccess(getSuccessMessage('wireman', 'add'));
-      setTimeout(() => setSaveSuccess(null), 3000);
     } catch (error) {
       console.error('❌ [WIREMAN] Error adding wireman:', error);
       setSaveError(getErrorMessage('wireman', 'add'));
@@ -477,7 +580,7 @@ const ContractorSupervisor: React.FC = () => {
     }
   };
 
-  // Delete handlers
+  // Delete handlers - Angular parity implementation
   const handleDeleteSupervisor = (id: number) => {
     SweetAlert.fire({
       title: 'Delete Supervisor',
@@ -487,11 +590,44 @@ const ContractorSupervisor: React.FC = () => {
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        deleteSupervisor(id);
-        setSaveSuccess(getSuccessMessage('supervisor', 'delete'));
-        setTimeout(() => setSaveSuccess(null), 3000);
+        try {
+          console.log('🗑️ [SUPERVISOR] Deleting supervisor with id:', id);
+          
+          const response = await userDetailsService.deleteContractSupervisor(id);
+          
+          if (response.success) {
+            console.log('✅ [SUPERVISOR] Successfully deleted supervisor');
+            
+            // Refresh data after deletion (Angular parity)
+            const currentApprefId = applicationContext?.appRefId || apprefId;
+            if (currentApprefId) {
+              try {
+                const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+                if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
+                  const data = refreshResponse.data.formModel[0];
+                  const existingSupervisors = data.supervisorLicence_Backlog || [];
+                  const existingWiremans = data.wiremanLicence_Backlog || [];
+                  
+                  setExistingSupervisorsFromAPI(existingSupervisors);
+                  setExistingWiremansFromAPI(existingWiremans);
+                  console.log('🔄 [SUPERVISOR] Data refreshed after supervisor deletion');
+                }
+              } catch (refreshError) {
+                console.warn('⚠️ [SUPERVISOR] Could not refresh data after deletion:', refreshError);
+              }
+            }
+            
+            setSaveSuccess(getSuccessMessage('supervisor', 'delete'));
+            setTimeout(() => setSaveSuccess(null), 3000);
+          } else {
+            throw new Error(response.message || 'Failed to delete supervisor');
+          }
+        } catch (error) {
+          console.error('❌ [SUPERVISOR] Error deleting supervisor:', error);
+          setSaveError(getErrorMessage('supervisor', 'delete'));
+        }
       }
     });
   };
@@ -505,93 +641,175 @@ const ContractorSupervisor: React.FC = () => {
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        deleteWireman(id);
-        setSaveSuccess(getSuccessMessage('wireman', 'delete'));
-        setTimeout(() => setSaveSuccess(null), 3000);
+        try {
+          console.log('🗑️ [WIREMAN] Deleting wireman with id:', id);
+          
+          const response = await userDetailsService.deleteContractWireman(id);
+          
+          if (response.success) {
+            console.log('✅ [WIREMAN] Successfully deleted wireman');
+            
+            // Refresh data after deletion (Angular parity)
+            const currentApprefId = applicationContext?.appRefId || apprefId;
+            if (currentApprefId) {
+              try {
+                const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+                if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
+                  const data = refreshResponse.data.formModel[0];
+                  const existingSupervisors = data.supervisorLicence_Backlog || [];
+                  const existingWiremans = data.wiremanLicence_Backlog || [];
+                  
+                  setExistingSupervisorsFromAPI(existingSupervisors);
+                  setExistingWiremansFromAPI(existingWiremans);
+                  console.log('🔄 [WIREMAN] Data refreshed after wireman deletion');
+                }
+              } catch (refreshError) {
+                console.warn('⚠️ [WIREMAN] Could not refresh data after deletion:', refreshError);
+              }
+            }
+            
+            setSaveSuccess(getSuccessMessage('wireman', 'delete'));
+            setTimeout(() => setSaveSuccess(null), 3000);
+          } else {
+            throw new Error(response.message || 'Failed to delete wireman');
+          }
+        } catch (error) {
+          console.error('❌ [WIREMAN] Error deleting wireman:', error);
+          setSaveError(getErrorMessage('wireman', 'delete'));
+        }
       }
     });
   };
 
-  // ✅ 8. SAVE & NEXT LOGIC - Validate completion requirements and navigate
+  // ✅ 8. SAVE & NEXT LOGIC - Validate completion requirements and navigate (Angular parity)
   const handleSaveAndNext = async () => {
-    console.log('💾 [SAVE_AND_NEXT] Starting validation...');
+    console.log('� [REACT-SAVE] ===== SAVE & CONTINUE BUTTON CLICKED =====');
+    console.log('🚀 [REACT-SAVE] Function: handleSaveAndNext() triggered');
+    console.log('🚀 [REACT-SAVE] Current route URL:', location.pathname + location.search);
+    console.log('🚀 [REACT-SAVE] Timestamp:', new Date().toISOString());
     
-    // Simple validation: Check if we have at least one supervisor and one wireman
-    const hasValidSupervisors = supervisorsList.length > 0;
-    const hasValidWiremans = wiremansList.length > 0;
+    console.log('📊 [REACT-SAVE] STEP 1: Data State Analysis');
+    console.log('📊 [REACT-SAVE] Supervisors count:', supervisorsList.length);
+    console.log('📊 [REACT-SAVE] Wiremans count:', wiremansList.length);
+    console.log('📊 [REACT-SAVE] Working areas count:', applicationContext?.workingAreaList?.length || 0);
     
-    // Check for expired licenses
-    const expiredSupervisors = supervisorsList.filter(s => s.licenceExpired);
-    const expiredWiremans = wiremansList.filter(w => w.licenceExpired);
+    console.log('�💾 [SAVE_AND_NEXT] Starting validation...');
+    console.log('💾 [SAVE_AND_NEXT] Data counts:', {
+      supervisors: supervisorsList.length,
+      wiremans: wiremansList.length,
+      workingAreas: applicationContext?.workingAreaList?.length || 0
+    });
     
-    const validationResult = {
-      isValid: hasValidSupervisors && hasValidWiremans && expiredSupervisors.length === 0 && expiredWiremans.length === 0,
-      message: '',
-      expiredLicences: {
-        supervisors: expiredSupervisors,
-        wiremans: expiredWiremans
-      }
-    };
+    // STEP 1: EXACT COUNT VALIDATION (Critical Logic - Angular parity)
+    const workingAreaCount = applicationContext?.workingAreaList?.length || 0;
+    const exactCountValidation = (
+      supervisorsList.length === workingAreaCount && 
+      wiremansList.length === workingAreaCount
+    );
     
-    if (!hasValidSupervisors) {
-      validationResult.message = 'At least one supervisor is required';
-    } else if (!hasValidWiremans) {
-      validationResult.message = 'At least one wireman is required';
-    } else if (expiredSupervisors.length > 0 || expiredWiremans.length > 0) {
-      validationResult.message = 'Some licenses have expired';
+    console.log('💾 [SAVE_AND_NEXT] Exact count validation:', {
+      supervisorsMatch: supervisorsList.length === workingAreaCount,
+      wiremansMatch: wiremansList.length === workingAreaCount,
+      overallPass: exactCountValidation
+    });
+    
+    if (!exactCountValidation) {
+      console.log('❌ [SAVE_AND_NEXT] Count validation failed - Angular parity');
+      SweetAlert.fire({ 
+        icon: 'error', 
+        text: "Please complete Supervisor and Wireman list" 
+      });
+      return;
     }
     
-    console.log('💾 [SAVE_AND_NEXT] Validation result:', validationResult);
+    // STEP 2: EXPIRED LICENSE EXTRACTION (Angular parity)
+    const expiredSupervisorLicences = supervisorsList
+      .filter((item: any) => item.licenceExpired)
+      .map((item: any) => item.licenceNo);  // ✅ Extract licenceNo only
     
-    if (!validationResult.isValid) {
-      console.log('❌ [SAVE_AND_NEXT] Validation failed:', validationResult.message);
+    const expiredWiremanLicences = wiremansList
+      .filter((item: any) => item.licenceExpired)
+      .map((item: any) => item.licenceNo);  // ✅ Extract licenceNo only
+    
+    console.log('💾 [SAVE_AND_NEXT] Expired licenses check:', {
+      expiredSupervisors: expiredSupervisorLicences,
+      expiredWiremans: expiredWiremanLicences
+    });
+    
+    // STEP 3: EXPIRED LICENSE VALIDATION (Angular parity)
+    if (expiredSupervisorLicences.length > 0 || expiredWiremanLicences.length > 0) {
+      console.log('❌ [SAVE_AND_NEXT] Expired licenses found, blocking navigation');
       
-      // Show expired licence details (Angular parity)
-      if (validationResult.expiredLicences?.supervisors?.length > 0 || 
-          validationResult.expiredLicences?.wiremans?.length > 0) {
-        
-        const expiredSupervisorLicences = validationResult.expiredLicences.supervisors;
-        const expiredWiremanLicences = validationResult.expiredLicences.wiremans;
-        
-        const expiredLicencesMessage = `
-          ${expiredSupervisorLicences.length > 0 ? `Expired Supervisor Licences: <b style="color:#034078 ;">${expiredSupervisorLicences.join(', ')}</b>` : ''}
-          <br>
-          ${expiredWiremanLicences.length > 0 ? `Expired Wireman Licences: <b style="color:#034078 ;">${expiredWiremanLicences.join(', ')}</b>` : ''}
-        `;
+      // STEP 3A: BUILD STYLED ERROR MESSAGE (Angular parity)
+      const expiredLicencesMessage = `
+        ${expiredSupervisorLicences.length > 0 ? 
+          `Expired Supervisor Licences: <b style="color:#034078 ;">${expiredSupervisorLicences.join(', ')}</b>` : ''}
+        <br>
+        ${expiredWiremanLicences.length > 0 ? 
+          `Expired Wireman Licences: <b style="color:#034078 ;">${expiredWiremanLicences.join(', ')}</b>` : ''}
+      `;
 
-        SweetAlert.fire({
-          title: "OOPS !",
-          icon: 'error',
-          html: `The following licences have expired:<br><hr>${expiredLicencesMessage}<hr> <br>  <p>Please remove these expired licences and add new one to proceed.</p>`
-        });
-        return;
-      } else {
-        SweetAlert.fire({ icon: 'error', text: validationResult.message });
-        return;
-      }
+      // STEP 3B: SHOW STYLED ALERT (Angular parity)
+      SweetAlert.fire({
+        title: "OOPS !",
+        icon: 'error',
+        html: `The following licences have expired:<br><hr>${expiredLicencesMessage}<hr> 
+               <br><p>Please remove these expired licences and add new one to proceed.</p>`
+      });
+      return; // ✅ Stop execution
     }
     
-    console.log('✅ [SAVE_AND_NEXT] Validation passed, navigating to next page');
+    console.log('✅ [SAVE_AND_NEXT] All validations passed, building query parameters');
     
     try {
-      // Encrypt & navigate using uniform query param helper (Angular parity)
-      const queryParams = ContractorPayloadBuilder.buildQueryParams({
+      // STEP 4: SUCCESS FLOW - BUILD QUERY PARAMETERS (React contractor-documents compatibility)
+      console.log('🔧 [REACT-SAVE] STEP 4: Building query parameters');
+      console.log('🔧 [REACT-SAVE] Application context data:', {
+        appRefId: applicationContext?.appRefId,
+        workingAreaList: applicationContext?.workingAreaList?.length,
+        selectedDistricts: applicationContext?.selectedWorkingAreaDistrictsList?.length,
+        contractorLicenceId: applicationContext?.contractorLicenceId,
+        applicationContractorType: applicationContext?.applicationContractorType,
+        applicationIsLocked: applicationContext?.applicationIsLocked,
+        is30DaysCrossed: applicationContext?.is30DaysCrossed
+      });
+      
+      // Use Angular-compatible Save & Next query builder
+      const queryParams = ContractorPayloadBuilder.buildSaveAndNextQueryParams({
         appRefId: applicationContext?.appRefId || apprefId,
         contractorFormMode: applicationContext?.contractorFormMode || 'new',
         applicationIsLocked: applicationContext?.applicationIsLocked || false,
         applicationContractorType: applicationContext?.applicationContractorType || '',
-        renewAppId: applicationContext?.renewAppId,
         is30DaysCrossed: applicationContext?.is30DaysCrossed
       }, encryptionService);
       
       const queryString = new URLSearchParams(queryParams).toString();
+      console.log('� [REACT-SAVE] Final query params count:', Object.keys(queryParams).length);
+      console.log('🔧 [REACT-SAVE] Final query parameters:', Object.keys(queryParams));
+      console.log('�💾 [SAVE_AND_NEXT] Navigating with complete query params count:', Object.keys(queryParams).length);
+      console.log('💾 [SAVE_AND_NEXT] Query string preview:', queryString.substring(0, 100) + '...');
+      
+      // STEP 5: NAVIGATION
+      console.log('🧭 [REACT-SAVE] STEP 5: Starting navigation');
+      console.log('🧭 [REACT-SAVE] Target route: /dashboard/license/attachments');
+      console.log('🧭 [REACT-SAVE] Navigation payload ready');
+      console.log('🧭 [REACT-SAVE] Calling navigate...');
+      
+      // STEP 5: NAVIGATION (React route to attachments page using ContractorDocuments component)
       navigate(`/dashboard/license/attachments?${queryString}`);
       
+      console.log('🧭 [REACT-SAVE] Navigation call completed');
+      console.log('🚀 [REACT-SAVE] ===== SAVE FUNCTION COMPLETED =====');
+      
     } catch (error) {
+      console.error('❌ [REACT-SAVE] Error building query params:', error);
       console.error('❌ [SAVE_AND_NEXT] Error building query params:', error);
-      setSaveError('Failed to navigate to next page. Please try again.');
+      SweetAlert.fire({ 
+        icon: 'error', 
+        text: 'Failed to navigate to next page. Please try again.' 
+      });
     }
   };
 
@@ -844,7 +1062,7 @@ const ContractorSupervisor: React.FC = () => {
                     allowedFileTypes=".pdf,.jpg,.jpeg,.png"
                     name="uploadPan"
                     onFileUploaded={(info) => handleSupervisorFileUpload({
-                      formControlName: 'supervisorCertificate',
+                      formControlName: 'licenceDocument',
                       serverResponse: info.serverResponse
                     })}
                   />
@@ -858,7 +1076,7 @@ const ContractorSupervisor: React.FC = () => {
                     allowedFileTypes=".pdf,.jpg,.jpeg,.png"
                     name="uploadPan"
                     onFileUploaded={(info) => handleSupervisorFileUpload({
-                      formControlName: 'supervisorPan',
+                      formControlName: 'panNoDocument',
                       serverResponse: info.serverResponse
                     })}
                   />
@@ -1065,7 +1283,7 @@ const ContractorSupervisor: React.FC = () => {
                     allowedFileTypes=".pdf,.jpg,.jpeg,.png"
                     name="uploadPan"
                     onFileUploaded={(info) => handleWiremanFileUpload({
-                      formControlName: 'wiremanPermit',
+                      formControlName: 'licenceDocument',
                       serverResponse: info.serverResponse
                     })}
                   />
@@ -1079,7 +1297,7 @@ const ContractorSupervisor: React.FC = () => {
                     allowedFileTypes=".pdf,.jpg,.jpeg,.png"
                     name="uploadPan"
                     onFileUploaded={(info) => handleWiremanFileUpload({
-                      formControlName: 'wiremanPan',
+                      formControlName: 'panNoDocument',
                       serverResponse: info.serverResponse
                     })}
                   />
@@ -1185,19 +1403,28 @@ const ContractorSupervisor: React.FC = () => {
               </Button>
               
               <Button
-                variant="primary"
-                onClick={handleSaveAndNext}
+                variant={applicationContext?.applicationIsLocked ? "danger" : "primary"}
+                onClick={() => {
+                  console.log('🔘 [REACT-SAVE] ===== SAVE & CONTINUE BUTTON CLICKED =====');
+                  console.log('🔘 [REACT-SAVE] Button clicked, calling handleSaveAndNext()');
+                  handleSaveAndNext();
+                }}
                 className="btn-navigation"
-                disabled={isAddingSupervisor || isAddingWireman}
+                disabled={applicationContext?.applicationIsLocked || isAddingSupervisor || isAddingWireman}
               >
-                {isAddingSupervisor || isAddingWireman ? (
+                {applicationContext?.applicationIsLocked ? (
+                  <>
+                    Application Locked
+                    <i className="fa-solid fa-lock mx-1"></i>
+                  </>
+                ) : isAddingSupervisor || isAddingWireman ? (
                   <>
                     <i className="fa fa-spinner fa-spin me-2"></i>
                     Saving...
                   </>
                 ) : (
                   <>
-                    Save & Continue
+                    Save & Next
                     <i className="bi bi-arrow-right ms-2"></i>
                   </>
                 )}

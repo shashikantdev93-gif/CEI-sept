@@ -252,6 +252,16 @@ export const userDetailsService = {
     return axiosInterceptor.get<string>('/CommonApis/getClientId');
   },
 
+  async getApplicationTypeAllowDoc(appRefId: number, deleteTempFiles: boolean = true): Promise<ApiResponse<any[]>> {
+    console.log('🔄 [USER-SERVICE] Getting application type allowed documents for appRefId:', appRefId);
+    const queryParams = new URLSearchParams({
+      id: appRefId.toString(),
+      deleteTempFiles: deleteTempFiles.toString()
+    });
+    
+    return axiosInterceptor.get<any[]>(`/CommonApis/getApplicationTypeAllowDoc?${queryParams}`);
+  },
+
   async saveUserDetails(payload: UserDetailsPayload): Promise<ApiResponse<UserDetailsResponse>> {
     console.log('🔄 [USER-SERVICE] Saving user details');
     return axiosInterceptor.post<UserDetailsResponse>('/UserDetails/addUpdate_UserDetails', payload);
