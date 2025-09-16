@@ -3,78 +3,40 @@ import { Container, Row, Col, Card, Form, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useProjectSiteAPI } from '../../hooks/useProjectSiteAPI';
 
-const SupervisorRegistration: React.FC = () => {
+const WiremanInformationNew: React.FC = () => {
   const navigate = useNavigate();
 
   // ✅ ADD: Draft mode detection logic (Angular parity)
   const getDraftApplicationId = (): number | null => {
-    console.log('🔍 [SUPERVISOR-REGISTRATION] Checking for draft data...');
+    console.log('🔍 [WIREMAN-REGISTRATION] Checking for draft data...');
     
     // Check for draft navigation data
     const allowDraftNavigation = sessionStorage.getItem('allowDraftNavigation');
     const draftData = sessionStorage.getItem('draftApplicationData');
     
-    console.log('🔍 [SUPERVISOR-REGISTRATION] allowDraftNavigation:', allowDraftNavigation);
-    console.log('🔍 [SUPERVISOR-REGISTRATION] draftData raw:', draftData);
-    
     if (allowDraftNavigation === 'true' && draftData) {
       try {
         const parsedData = JSON.parse(draftData);
-        console.log('📊 [SUPERVISOR-REGISTRATION] Draft data parsed:', parsedData);
-        console.log('📊 [SUPERVISOR-REGISTRATION] Application type check:', parsedData.applicationType, 'Expected: 7');
-        console.log('📊 [SUPERVISOR-REGISTRATION] App ID check:', parsedData.appId);
+        console.log('📊 [WIREMAN-REGISTRATION] Draft data found:', parsedData);
         
-        // Only process if it's supervisor application type (7)
-        if (parsedData.applicationType === 7 && parsedData.appId) {
-          console.log('✅ [SUPERVISOR-REGISTRATION] Supervisor draft mode detected, appId:', parsedData.appId);
+        // Only process if it's wireman application type (8)
+        if (parsedData.applicationType === 8 && parsedData.appId) {
+          console.log('✅ [WIREMAN-REGISTRATION] Wireman draft mode detected, appId:', parsedData.appId);
           return parsedData.appId;
         } else {
-          console.log('⚠️ [SUPERVISOR-REGISTRATION] Draft data is not for supervisor application');
-          console.log('⚠️ [SUPERVISOR-REGISTRATION] applicationType:', parsedData.applicationType, 'appId:', parsedData.appId);
+          console.log('⚠️ [WIREMAN-REGISTRATION] Draft data is not for wireman application');
         }
       } catch (error) {
-        console.error('❌ [SUPERVISOR-REGISTRATION] Error parsing draft data:', error);
+        console.error('❌ [WIREMAN-REGISTRATION] Error parsing draft data:', error);
       }
     }
     
-    console.log('ℹ️ [SUPERVISOR-REGISTRATION] No supervisor draft detected - creating new application');
+    console.log('ℹ️ [WIREMAN-REGISTRATION] No wireman draft detected - creating new application');
     return null;
   };
 
   // ✅ Get draft ID before hook initialization
   const draftApplicationId = getDraftApplicationId();
-  
-  // ✅ ADD: Form mode state for field disable logic (Angular parity)
-  const [formMode, setFormMode] = useState<'new' | 'edit' | 'draft'>('new');
-  
-  // ✅ ADD: Date formatting function for mm/dd/yyyy display format
-  const formatDateOfBirth = (dateValue: string): string => {
-    try {
-      console.log('🔍 [DOB-FORMAT] Input date value:', dateValue);
-      
-      // Parse ISO date string manually to avoid auto-correction of invalid dates
-      // Expected format: "1988-02-29T18:30:00Z" or "1988-02-29"
-      const dateMatch = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      
-      if (!dateMatch) {
-        console.warn('⚠️ [DOB-FORMAT] Invalid date format:', dateValue);
-        return '';
-      }
-      
-      const year = dateMatch[1];
-      const month = dateMatch[2];
-      const day = dateMatch[3];
-      
-      // Format to mm/dd/yyyy directly from parsed components
-      const formattedDate = `${month}/${day}/${year}`;
-      
-      console.log('✅ [DOB-FORMAT] Formatted date (manual parsing):', formattedDate);
-      return formattedDate;
-    } catch (error) {
-      console.error('❌ [DOB-FORMAT] Error formatting date:', error);
-      return '';
-    }
-  };
   
   // ✅ ADD: Project Site API integration for loading existing data
   const {
@@ -83,185 +45,101 @@ const SupervisorRegistration: React.FC = () => {
     pageType: 'applicationForm',
     autoLoad: false, // We'll load manually when needed
     onDataLoaded: (data) => {
-      console.log('🎯 [SUPERVISOR-REGISTRATION] Project site data loaded, extracting supervisor data...');
-      console.log('📊 [SUPERVISOR-REGISTRATION] Full API response:', data);
-      
-      // ✅ DEBUG: Log the structure of the response to understand data paths
-      if (data) {
-        console.log('🔍 [SUPERVISOR-REGISTRATION] API response structure:', Object.keys(data));
-        if (data.users) {
-          console.log('🔍 [SUPERVISOR-REGISTRATION] Users structure:', Object.keys(data.users));
-          if (data.users.userProfileMapping) {
-            console.log('🔍 [SUPERVISOR-REGISTRATION] userProfileMapping structure:', Object.keys(data.users.userProfileMapping));
-          }
-        }
-      }
+      console.log('🎯 [WIREMAN-REGISTRATION] Project site data loaded, extracting wireman data...');
       
       if (data && data.applications && draftApplicationId) {
-        // Filter applications for supervisor type (applicationType: 7) and matching appId
-        const supervisorApplication = data.applications.find((app: any) => 
-          app.applicationType === 7 && app.appId === draftApplicationId
+        // Filter applications for wireman type (applicationType: 8) and matching appId
+        const wiremanApplication = data.applications.find((app: any) => 
+          app.applicationType === 8 && app.appId === draftApplicationId
         );
         
-        if (supervisorApplication) {
-          console.log('✅ [SUPERVISOR-REGISTRATION] Found supervisor application data:', supervisorApplication);
-          populateFormFromAPI(supervisorApplication);
+        if (wiremanApplication) {
+          console.log('✅ [WIREMAN-REGISTRATION] Found wireman application data:', wiremanApplication);
+          populateFormFromAPI(wiremanApplication);
         } else {
-          console.warn('⚠️ [SUPERVISOR-REGISTRATION] No matching supervisor application found');
+          console.warn('⚠️ [WIREMAN-REGISTRATION] No matching wireman application found');
         }
       }
       
-      // ✅ COMPREHENSIVE FIELD MAPPING: Extract basic user profile data (Angular parity)
+      // Extract basic user profile data (always available)
       if (data && data.users && data.users.userProfileMapping && data.users.userProfileMapping.userProfile) {
-        const userProfile = data.users.userProfileMapping.userProfile as any;
-        console.log('👤 [SUPERVISOR-REGISTRATION] User profile data:', userProfile);
-        console.log('🔍 [SUPERVISOR-REGISTRATION] User profile keys:', Object.keys(userProfile));
-        console.log('🔍 [SUPERVISOR-REGISTRATION] dateOfBirth property check:', {
-          exists: 'dateOfBirth' in userProfile,
-          value: userProfile.dateOfBirth,
-          type: typeof userProfile.dateOfBirth
-        });
+        const userProfile = data.users.userProfileMapping.userProfile;
         
-        // Map name fields (firstName + lastName)
+        // Populate basic fields from user profile (Angular parity)
         if (userProfile.firstName && userProfile.lastName) {
           const fullName = `${userProfile.firstName} ${userProfile.lastName}`.trim();
           setName(fullName);
-          console.log('✅ [SUPERVISOR-REGISTRATION] Name auto-filled:', fullName);
+          console.log('✅ [WIREMAN-REGISTRATION] Name auto-filled:', fullName);
         }
         
-        // Map father name
-        if (userProfile.fatherName) {
-          setFatherName(userProfile.fatherName);
-          console.log('✅ [SUPERVISOR-REGISTRATION] Father name auto-filled:', userProfile.fatherName);
-        }
-        
-        // Map mobile number
         if (userProfile.mobileNo) {
           setMobileNumber(userProfile.mobileNo);
-          console.log('✅ [SUPERVISOR-REGISTRATION] Mobile auto-filled:', userProfile.mobileNo);
+          console.log('✅ [WIREMAN-REGISTRATION] Mobile auto-filled:', userProfile.mobileNo);
         }
         
-        // Map email address
         if (userProfile.email) {
           setEmail(userProfile.email);
-          console.log('✅ [SUPERVISOR-REGISTRATION] Email auto-filled:', userProfile.email);
+          console.log('✅ [WIREMAN-REGISTRATION] Email auto-filled:', userProfile.email);
         }
         
-        // Map date of birth - API format: "1988-02-29T18:30:00Z"
-        if (userProfile.dateOfBirth) {
-          console.log('🔍 [SUPERVISOR-REGISTRATION] Raw dateOfBirth from API:', userProfile.dateOfBirth);
-          const formattedDate = formatDateOfBirth(userProfile.dateOfBirth);
-          if (formattedDate) {
-            setDateOfBirth(formattedDate);
-            console.log('✅ [SUPERVISOR-REGISTRATION] Date of birth auto-filled (mm/dd/yyyy):', formattedDate);
-          }
+        if (userProfile.commuAddress1) {
+          setAddress(userProfile.commuAddress1);
+          console.log('✅ [WIREMAN-REGISTRATION] Address auto-filled:', userProfile.commuAddress1);
         }
       }
       
-      // ✅ Map address from project site data (Angular parity: address1 + address2)
-      if (data && data.address1) {
-        let fullAddress = data.address1;
-        if (data.address2 && data.address2 !== 'N/A') {
-          fullAddress += ` ${data.address2}`;
-        }
-        setAddress(fullAddress);
-        console.log('✅ [SUPERVISOR-REGISTRATION] Address auto-filled:', fullAddress);
-      }
-      
-      // ✅ Map PAN number from project site data (Angular parity)
+      // ✅ TODO: Extract additional profile fields from data.applicantPanNumber and other sources
+      // These fields are typically available in the outer projectSiteData, not in userProfile
       if (data && data.applicantPanNumber) {
         setPanNo(data.applicantPanNumber);
-        console.log('✅ [SUPERVISOR-REGISTRATION] PAN auto-filled from projectSiteData:', data.applicantPanNumber);
+        console.log('✅ [WIREMAN-REGISTRATION] PAN auto-filled from projectSiteData:', data.applicantPanNumber);
       }
-      
-      console.log('🎯 [SUPERVISOR-REGISTRATION] All field mapping completed successfully');
     },
     onError: (error) => {
-      console.error('❌ [SUPERVISOR-REGISTRATION] Error loading project site data:', error);
+      console.error('❌ [WIREMAN-REGISTRATION] Error loading project site data:', error);
     }
   });
 
-  // ✅ ADD: Function to populate form from API data (supervisor-specific fields)
-  const populateFormFromAPI = (supervisorApplication: any) => {
-    console.log('🔧 [SUPERVISOR-REGISTRATION] Populating supervisor-specific fields...');
-    console.log('📊 [SUPERVISOR-REGISTRATION] Supervisor application data:', supervisorApplication);
+  // ✅ ADD: Function to populate form from API data (wireman-specific fields)
+  const populateFormFromAPI = (wiremanApplication: any) => {
+    console.log('🔧 [WIREMAN-REGISTRATION] Populating wireman-specific fields...');
     
-    // Map supervisor-specific fields from API response (Angular parity)
-    if (supervisorApplication.supervisorLicence_GeneralDetails) {
-      const supervisorDetails = supervisorApplication.supervisorLicence_GeneralDetails;
-      console.log('📋 [SUPERVISOR-REGISTRATION] Supervisor licence details:', supervisorDetails);
+    // TODO: Map wireman-specific fields from API response
+    // This will be implemented in Step 4 (field mapping)
+    if (wiremanApplication.wiremanLicence_GeneralDetails) {
+      const wiremanDetails = wiremanApplication.wiremanLicence_GeneralDetails;
       
-      // Map "Do you hold supervisor licence from other state" field
-      if (supervisorDetails.doYouHoldSupervisorLicence !== undefined) {
-        setHasCertificateFromOtherState(supervisorDetails.doYouHoldSupervisorLicence ? "Yes" : "No");
-        console.log('✅ [SUPERVISOR-REGISTRATION] Supervisor licence status auto-filled:', supervisorDetails.doYouHoldSupervisorLicence);
-      }
-      
-      // Map "Practical Experience Type" field
-      if (supervisorDetails.practicleExperianceType !== undefined) {
-        // Map numeric practicleExperianceType to radio button values
-        const experienceTypeMap = {
-          1: "two_years_electrician",
-          2: "one_year_contractor", 
-          3: "one_year_pwd",
-          4: "one_year_instructor",
-          5: "one_year_administration"
-        };
-        
-        const experienceValue = experienceTypeMap[supervisorDetails.practicleExperianceType as keyof typeof experienceTypeMap];
-        if (experienceValue) {
-          setSelectedExperience(experienceValue);
-          console.log('✅ [SUPERVISOR-REGISTRATION] Experience type auto-filled:', `${supervisorDetails.practicleExperianceType} -> ${experienceValue}`);
-        }
+      if (wiremanDetails.doYouHoldPermit !== undefined) {
+        setHasCertificateFromOtherState(wiremanDetails.doYouHoldPermit ? "Yes" : "No");
+        console.log('✅ [WIREMAN-REGISTRATION] Wireman permit status auto-filled:', wiremanDetails.doYouHoldPermit);
       }
     }
-    
-    // Keep form mode as draft (don't change to edit)
-    console.log('🎯 [SUPERVISOR-REGISTRATION] Supervisor data populated successfully, form mode remains:', formMode);
   };
 
   useEffect(() => {
-    console.log('🔧 [SUPERVISOR_COMPONENT] ===== SUPERVISOR COMPONENT INITIALIZED =====');
-    console.log('🔧 [SUPERVISOR_COMPONENT] Component mounted');
-    console.log('🔧 [SUPERVISOR_COMPONENT] Current location: /supervisor-registration');
-    console.log('🔍 [SUPERVISOR_COMPONENT] Draft Application ID check:', draftApplicationId);
+    console.log('🔧 [WIREMAN_COMPONENT] ===== WIREMAN COMPONENT INITIALIZED =====');
+    console.log('🔧 [WIREMAN_COMPONENT] Component mounted');
+    console.log('🔧 [WIREMAN_COMPONENT] Current location: /wireman-information-new');
+    
+    // ✅ ADD: Clean up draft navigation flags
+    sessionStorage.removeItem('allowWiremanInformationNavigation');
+    sessionStorage.removeItem('allowDraftNavigation');
+    sessionStorage.removeItem('draftApplicationData');
     
     // ✅ ADD: Load project site data if in draft mode
     if (draftApplicationId) {
-      console.log('🔄 [SUPERVISOR-REGISTRATION] Draft mode detected, loading project site data...');
-      console.log('🔄 [SUPERVISOR-REGISTRATION] Draft Application ID:', draftApplicationId);
-      setFormMode('draft');
+      console.log('🔄 [WIREMAN-REGISTRATION] Draft mode detected, loading project site data...');
       loadProjectSiteDetails();
-      
-      // Clean up draft navigation flags AFTER using them
-      setTimeout(() => {
-        sessionStorage.removeItem('allowSupervisorRegistrationNavigation');
-        sessionStorage.removeItem('allowDraftNavigation');
-        sessionStorage.removeItem('draftApplicationData');
-      }, 1000); // Delay to ensure API call completes
     } else {
-      console.log('ℹ️ [SUPERVISOR_COMPONENT] No draft data found - creating new application');
-      setFormMode('new');
-      
-      // Clean up immediately if not in draft mode
-      sessionStorage.removeItem('allowSupervisorRegistrationNavigation');
-      sessionStorage.removeItem('allowDraftNavigation');
-      sessionStorage.removeItem('draftApplicationData');
+      console.log('ℹ️ [WIREMAN_COMPONENT] No draft data found - creating new application');
     }
     
     return () => {
-      // Final cleanup on component unmount
-      sessionStorage.removeItem('allowSupervisorRegistrationNavigation');
+      sessionStorage.removeItem('allowWiremanInformationNavigation');
       sessionStorage.removeItem('allowDraftNavigation');
       sessionStorage.removeItem('draftApplicationData');
     };
   }, [draftApplicationId, loadProjectSiteDetails]);
-
-  // ✅ DEBUG: Track formMode changes
-  useEffect(() => {
-    console.log('🔄 [SUPERVISOR-REGISTRATION] Form mode changed to:', formMode);
-    console.log('🔄 [SUPERVISOR-REGISTRATION] Fields should be disabled:', formMode === 'draft');
-  }, [formMode]);
 
 
   const [name, setName] = useState("");
@@ -272,7 +150,6 @@ const SupervisorRegistration: React.FC = () => {
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [hasCertificateFromOtherState, setHasCertificateFromOtherState] = useState("No");
-  const [selectedExperience, setSelectedExperience] = useState("");
 
 
   const handleBack = () => {
@@ -281,15 +158,12 @@ const SupervisorRegistration: React.FC = () => {
 
 
   const handleSaveAndNext = () => {
-
-    console.log('Saving supervisor registration and proceeding to next step...');
+    console.log('Saving wireman registration and proceeding to next step...');
     
-
-    sessionStorage.setItem('allowUploadSupervisorDocumentNavigation', 'true');
-    console.log('SupervisorRegistration - Set allowUploadSupervisorDocumentNavigation flag');
+    sessionStorage.setItem('allowUploadWiremanDocumentNavigation', 'true');
+    console.log('WiremanInformationNew - Set allowUploadWiremanDocumentNavigation flag');
     
-
-    navigate('/dashboard/ProjectDetails/applicationForm/supervisor-registration/upload-supervisor-document');
+    navigate('/dashboard/ProjectDetails/applicationForm/wireman-information-new/upload-wireman-document');
   };
 
   const steps = [
@@ -387,9 +261,7 @@ const SupervisorRegistration: React.FC = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter full name"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -401,9 +273,7 @@ const SupervisorRegistration: React.FC = () => {
                       value={fatherName}
                       onChange={(e) => setFatherName(e.target.value)}
                       placeholder="Enter father's name"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -418,9 +288,7 @@ const SupervisorRegistration: React.FC = () => {
                       value={panNo}
                       onChange={(e) => setPanNo(e.target.value)}
                       placeholder="Enter PAN number"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -428,13 +296,10 @@ const SupervisorRegistration: React.FC = () => {
                   <Form.Group>
                     <Form.Label className="form-label fw-semibold text-dark">Date Of Birth</Form.Label>
                     <Form.Control
-                      type="text"
+                      type="date"
                       value={dateOfBirth}
                       onChange={(e) => setDateOfBirth(e.target.value)}
-                      placeholder="mm/dd/yyyy"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -450,9 +315,7 @@ const SupervisorRegistration: React.FC = () => {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Enter complete address"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -467,9 +330,7 @@ const SupervisorRegistration: React.FC = () => {
                       value={mobileNumber}
                       onChange={(e) => setMobileNumber(e.target.value)}
                       placeholder="Enter mobile number"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -481,9 +342,7 @@ const SupervisorRegistration: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter email address"
-                      className={`form-control border-2${formMode === 'draft' ? ' bg-light' : ''}`}
-                      disabled={formMode === 'draft'}
-                      readOnly={formMode === 'draft'}
+                      className="form-control border-2"
                     />
                   </Form.Group>
                 </Col>
@@ -524,8 +383,6 @@ const SupervisorRegistration: React.FC = () => {
                         name="experience"
                         id="experience1"
                         value="two_years_electrician"
-                        checked={selectedExperience === "two_years_electrician"}
-                        onChange={(e) => setSelectedExperience(e.target.value)}
                         className="me-3 mt-1"
                       />
                       <div className="d-flex align-items-start flex-grow-1">
@@ -542,8 +399,6 @@ const SupervisorRegistration: React.FC = () => {
                         name="experience"
                         id="experience2"
                         value="one_year_contractor"
-                        checked={selectedExperience === "one_year_contractor"}
-                        onChange={(e) => setSelectedExperience(e.target.value)}
                         className="me-3 mt-1"
                       />
                       <div className="d-flex align-items-start flex-grow-1">
@@ -560,8 +415,6 @@ const SupervisorRegistration: React.FC = () => {
                         name="experience"
                         id="experience3"
                         value="one_year_pwd"
-                        checked={selectedExperience === "one_year_pwd"}
-                        onChange={(e) => setSelectedExperience(e.target.value)}
                         className="me-3 mt-1"
                       />
                       <div className="d-flex align-items-start flex-grow-1">
@@ -578,8 +431,6 @@ const SupervisorRegistration: React.FC = () => {
                         name="experience"
                         id="experience4"
                         value="one_year_instructor"
-                        checked={selectedExperience === "one_year_instructor"}
-                        onChange={(e) => setSelectedExperience(e.target.value)}
                         className="me-3 mt-1"
                       />
                       <div className="d-flex align-items-start flex-grow-1">
@@ -596,8 +447,6 @@ const SupervisorRegistration: React.FC = () => {
                         name="experience"
                         id="experience5"
                         value="one_year_administration"
-                        checked={selectedExperience === "one_year_administration"}
-                        onChange={(e) => setSelectedExperience(e.target.value)}
                         className="me-3 mt-1"
                       />
                       <div className="d-flex align-items-start flex-grow-1">
@@ -618,7 +467,6 @@ const SupervisorRegistration: React.FC = () => {
                 variant="outline-secondary" 
                 onClick={handleBack}
                 className="btn-outline-secondary fw-semibold"
-                disabled={formMode === 'draft'}
               >
                 <i className="bi bi-arrow-left me-2"></i>
                 Back
@@ -627,7 +475,6 @@ const SupervisorRegistration: React.FC = () => {
                 variant="primary" 
                 onClick={handleSaveAndNext}
                 className="btn-primary fw-semibold"
-                disabled={formMode === 'draft'}
               >
                 Save & Next
                 <i className="bi bi-arrow-right ms-2"></i>
@@ -678,4 +525,4 @@ const SupervisorRegistration: React.FC = () => {
   );
 };
 
-export default SupervisorRegistration;
+export default WiremanInformationNew;

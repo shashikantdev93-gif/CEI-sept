@@ -13,7 +13,7 @@ import ContractorSupervisor from "../pages/contractor-supervisor/contractor-supe
 import ContractorDocuments from "../pages/contractor-documents/contractor-documents";
 import SupervisorRegistration from "../pages/Supervisor Registration/supervisor-registration"; 
 import UploadSupervisorDocument from "../pages/upload-supervisor-document/upload-supervisor-document"; 
-import WiremanInformationNew from "../pages/Wireman Information-New/wireman-information-new";
+import WiremanInformationNew from "../pages/Wireman Information-New/wireman-information";
 import UploadWiremanDocument from "../pages/upload-wireman-document/upload-wireman-document"; 
 
 
@@ -123,7 +123,7 @@ const RouterPage = () => (
        
       />
        <Route
-        path="/dashboard/ProjectDetails/applicationForm/wireman-information-new"
+        path="/dashboard/ProjectDetails/applicationForm/wireman-information"
         element={
           <BaseLayout headerType="Header1">
             <WiremanInformationNew />

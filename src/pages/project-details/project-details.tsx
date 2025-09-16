@@ -119,10 +119,25 @@ const ProjectDetailsPage: React.FC = () => {
     console.log('📊 [DRAFT-FLOW] Step 1: Button click triggered');
     console.log('📋 [DRAFT-FLOW] Row data received:', rowData);
     
-    // Extract application data from rowData - handle JSX content properly
+    // ✅ FIX: Use backend data directly from rowData instead of text pattern matching
+    // The DataTable now passes the backend application data through the row
+    const realAppId = rowData.backendAppId || rowData.applicationId;
+    const applicationType = rowData.applicationType || 6; // Default to contractor if missing
+    const applicationPurposeType = rowData.applicationPurposeType || 1; // Default to new registration
+    const applicationLifeCycleStatusType = rowData.applicationLifeCycleStatusType;
+    const appActionType = rowData.appActionType;
+    
+    console.log('✅ [DRAFT-FLOW] Using backend data from rowData:', {
+      realAppId,
+      applicationType,
+      applicationPurposeType,
+      applicationLifeCycleStatusType,
+      appActionType
+    });
+    
+    // Extract application ID text for display purposes
     let applicationIdText = '';
     if (typeof rowData["Application ID / Name"] === 'object' && rowData["Application ID / Name"]?.props?.children) {
-      // Extract text from JSX structure
       const children = rowData["Application ID / Name"].props.children;
       if (Array.isArray(children)) {
         applicationIdText = children.filter(child => typeof child === 'string').join('');
@@ -133,103 +148,36 @@ const ProjectDetailsPage: React.FC = () => {
       applicationIdText = rowData["Application ID / Name"];
     }
     
-    // CRITICAL FIX: Extract the real backend application ID
-    // Angular uses the actual application ID from the API response (like 3598)
-    // We need to get this from the projectSiteData, not use frontend table row IDs
-    let realAppId = null;
-    
-    console.log('🔍 [DRAFT-FLOW] Searching for real backend application ID...');
-    console.log('🔍 [DRAFT-FLOW] Frontend row ID (not backend appId):', rowData.ID || rowData.id);
-    console.log('🔍 [DRAFT-FLOW] Application ID text:', applicationIdText);
-    
-    // Find the actual application in projectSiteData that matches this row
-    if (projectSiteData && projectSiteData.applications) {
-      console.log('🔍 [DRAFT-FLOW] Searching in projectSiteData.applications...');
-      
-      // Find application by matching application ID text or other unique identifier
-      const matchingApplication = projectSiteData.applications.find((app: any) => {
-        const appIdMatch = app.publicAppRefNum === applicationIdText || 
-                          app.applicationId === applicationIdText ||
-                          app.appId === applicationIdText;
-        console.log('🔍 [DRAFT-FLOW] Checking app:', {
-          appId: app.appId,
-          publicAppRefNum: app.publicAppRefNum,
-          applicationId: app.applicationId,
-          matches: appIdMatch
-        });
-        return appIdMatch;
-      });
-      
-      if (matchingApplication) {
-        realAppId = matchingApplication.appId;
-        console.log('✅ [DRAFT-FLOW] Found matching application with real backend appId:', realAppId);
-        console.log('✅ [DRAFT-FLOW] Matching application data:', matchingApplication);
-      } else {
-        console.warn('⚠️ [DRAFT-FLOW] No matching application found in projectSiteData');
-        console.warn('⚠️ [DRAFT-FLOW] Available applications:', projectSiteData.applications);
-      }
+    // Log the application type routing decision
+    switch (applicationType) {
+      case 6:
+        console.log('🔄 [DRAFT-FLOW] Step 2: Contractor Registration route detected (applicationType: 6)');
+        break;
+      case 7:
+        console.log('🔄 [DRAFT-FLOW] Step 2: Supervisor Registration route detected (applicationType: 7)');
+        break;
+      case 8:
+        console.log('🔄 [DRAFT-FLOW] Step 2: Wireman Registration route detected (applicationType: 8)');
+        break;
+      default:
+        console.log('🔄 [DRAFT-FLOW] Step 2: Unknown application type, defaulting to Contractor');
     }
     
-    // Fallback: if we can't find the real appId, try to extract from applicationIdText
-    if (!realAppId && applicationIdText) {
-      // Try to extract numeric ID from application ID text if it contains one
-      const numericMatch = applicationIdText.match(/\d+/);
-      if (numericMatch) {
-        realAppId = parseInt(numericMatch[0]);
-        console.log('🔍 [DRAFT-FLOW] Extracted numeric ID from application text:', realAppId);
-      }
-    }
-    
-    // Final fallback - use the frontend ID (this may cause 404 errors)
-    if (!realAppId) {
-      realAppId = rowData.ID || rowData.id;
-      console.warn('⚠️ [DRAFT-FLOW] Using frontend row ID as fallback (may cause 404):', realAppId);
-    }
-    
-    const applicationData = {
-      appId: realAppId, // Use the real backend application ID
-      applicationId: applicationIdText,
-      currentStatus: rowData["Current Status"],
-      submittedOn: rowData["Submitted On"],
-      updatedOn: rowData["Updated On"],
-      paymentStatus: rowData["Payment Status"]
-    };
-    
-    console.log('📋 [DRAFT-FLOW] Application data extracted with real appId:', applicationData);
-    console.log('📋 [DRAFT-FLOW] Real backend appId (Angular compatible):', realAppId);
-    console.log('📋 [DRAFT-FLOW] Application ID text:', applicationIdText);
-    
-    // Determine application type based on application ID pattern or status
-    let applicationType = 6; // Default to contractor
-    let applicationPurposeType = 1; // Default to new registration
-    
-    // Check if it's a contractor application (CONTR prefix)
-    if (applicationIdText && applicationIdText.includes('CONTR')) {
-      applicationType = 6; // Contractor
-      console.log('🔄 [DRAFT-FLOW] Step 2: Contractor Registration route detected');
-    } else if (applicationIdText && applicationIdText.includes('WIRE')) {
-      applicationType = 7; // Wireman
-      console.log('🔄 [DRAFT-FLOW] Step 2: Wireman Registration route detected');
-    } else if (applicationIdText && applicationIdText.includes('SUPER')) {
-      applicationType = 8; // Supervisor
-      console.log('🔄 [DRAFT-FLOW] Step 2: Supervisor Registration route detected');
-    } else {
-      console.log('🔄 [DRAFT-FLOW] Step 2: Default Contractor Registration route detected (no pattern match)');
-    }
-    
-    console.log('📋 [DRAFT-FLOW] Application Type:', applicationType);
+    console.log('📋 [DRAFT-FLOW] Final Application Type:', applicationType);
     console.log('📋 [DRAFT-FLOW] Application Purpose Type:', applicationPurposeType);
     
     // Store application data in sessionStorage for the target component
     const draftData = {
-      appId: applicationData.appId,
+      appId: realAppId,
       applicationType: applicationType,
       applicationPurposeType: applicationPurposeType,
       applicationId: applicationIdText, // Use the extracted text instead of JSX
-      currentStatus: applicationData.currentStatus,
-      submittedOn: applicationData.submittedOn,
-      updatedOn: applicationData.updatedOn,
-      paymentStatus: applicationData.paymentStatus,
+      currentStatus: rowData["Current Status"],
+      submittedOn: rowData["Submitted On"],
+      updatedOn: rowData["Updated On"],
+      paymentStatus: rowData["Payment Status"],
+      applicationLifeCycleStatusType: applicationLifeCycleStatusType,
+      appActionType: appActionType,
       mode: 'edit', // This is a draft, so edit mode
       formMode: 'edit'
     };
@@ -243,19 +191,19 @@ const ProjectDetailsPage: React.FC = () => {
       
       let targetRoute = '';
       
-      // Route based on application type
+      // Route based on application type (Angular parity)
       switch (applicationType) {
         case 6: // Contractor
           targetRoute = '/dashboard/ProjectDetails/applicationForm/contractor-applicant-details';
           console.log('🔄 [DRAFT-FLOW] Preparing to navigate to contractor-applicant-details page');
           break;
-        case 7: // Wireman
-          targetRoute = '/dashboard/ProjectDetails/applicationForm/wireman-information-new';
-          console.log('🔄 [DRAFT-FLOW] Preparing to navigate to wireman-information-new page');
-          break;
-        case 8: // Supervisor
+        case 7: // Supervisor
           targetRoute = '/dashboard/ProjectDetails/applicationForm/supervisor-registration';
           console.log('🔄 [DRAFT-FLOW] Preparing to navigate to supervisor-registration page');
+          break;
+        case 8: // Wireman
+          targetRoute = '/dashboard/ProjectDetails/applicationForm/wireman-information-new';
+          console.log('🔄 [DRAFT-FLOW] Preparing to navigate to wireman-information-new page');
           break;
         default:
           targetRoute = '/dashboard/ProjectDetails/applicationForm/contractor-applicant-details';
