@@ -4,35 +4,19 @@
  */
 
 export const getInstrumentTypeName = (instrumentTypeId: number): string => {
+  // Match Angular ApplicationInstrumentsTypeEnum exactly
   const instrumentTypes: { [key: number]: string } = {
-    1: "Multimeter",
-    2: "Earth Tester", 
-    3: "Insulation Tester",
-    4: "Clamp Meter",
-    5: "Phase Sequence Meter",
-    6: "Continuity Tester",
-    7: "Power Quality Analyzer",
-    8: "Oscilloscope",
-    9: "Function Generator",
-    10: "High Voltage Tester",
-    11: "Relay Test Set",
-    12: "Primary Injection Test Set",
-    13: "Secondary Injection Test Set",
-    14: "Transformer Turn Ratio Tester",
-    15: "Circuit Breaker Analyzer",
-    16: "Power Factor Meter",
-    17: "Harmonic Analyzer",
-    18: "Load Flow Analysis Software",
-    19: "Short Circuit Analysis Software",
-    20: "SF6 Gas Analyzer",
-    21: "Partial Discharge Detector",
-    22: "Tan Delta Test Set",
-    23: "VLF Test Set",
-    24: "Cable Fault Locator",
-    25: "Thyristor Analyzer"
+    0: "N/A",
+    1: "Earth resistance tester",
+    2: "Tong tester", 
+    3: "Multimeter",
+    4: "Insulation tester of 500 volts",
+    5: "Insulation tester of 2500 volts (Only for High Voltage contractors)",
+    6: "Insulation tester of 5000 volts (Only for Extra High Voltage contractors)",
+    7: "Machine for testing of B.D. voltage value of Transformer oil"
   };
   
-  return instrumentTypes[instrumentTypeId] || `Unknown Instrument (${instrumentTypeId})`;
+  return instrumentTypes[instrumentTypeId] || "Unknown";
 };
 
 export const getContractorTypeName = (typeId: number): string => {
@@ -57,27 +41,17 @@ export const getVoltageTypeName = (voltageId: number): string => {
   return voltageTypes[voltageId] || `Unknown Voltage (${voltageId})`;
 };
 
-export const getRangeUnitName = (rangeUnitId: number): string => {
-  const rangeUnits: { [key: number]: string } = {
-    1: "V",
-    2: "A",
-    3: "Ω",
-    4: "Hz",
-    5: "W",
-    6: "VA",
-    7: "VAR",
-    8: "kV",
-    9: "kA",
-    10: "MΩ",
-    11: "mA",
-    12: "µA",
-    13: "nA",
-    14: "pF",
-    15: "µF",
-    16: "mF"
+export const getRangeUnitName = (rangeUnitId: string | number): string => {
+  // Match Angular InstrumentRangeEnum exactly
+  const rangeUnits: { [key: string]: string } = {
+    "1": "Volt (V)",
+    "2": "Amp (A)", 
+    "3": "Ohm (Ω)",
+    "4": "Mega Ohm (MΩ)",
+    "5": "Kilo Volt (KV)"
   };
   
-  return rangeUnits[rangeUnitId] || "";
+  return rangeUnits[String(rangeUnitId)] || "Unknown";
 };
 
 // Reverse mappings for form submissions

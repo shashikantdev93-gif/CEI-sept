@@ -1,305 +1,53 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../../styles/main.css";
 import Footer from "../../components/Footer/Footer";
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Form, Row, Col, Button, Spinner } from 'react-bootstrap';
-import { useLocation } from '../../hooks/useLocation';
-import encryptionService from '../../lib/encryptionService';
-import { useNavigate } from 'react-router-dom';
 import FileUpload from '../../components/FileUpload';
-import { axiosInterceptor } from '../../lib/interceptor'; // Add this import
-import DateTimeUtils from '../../utils/dateTimeUtils'; // Add this import
+import { useProjectSiteBusinessLogic } from '../../modules/project-site';
 
 const CommonApplicationFormEstablished: React.FC = () => {
-  // Form state for Common Application Form (Established)
-  const [projectSiteApplicationType, setProjectSiteApplicationType] = useState("");
-  const [applicantPanNumber, setApplicantPanNumber] = useState("");
-  const [applicantPanAttachment, setApplicantPanAttachment] = useState("");
-  const [address1, setAddress1] = useState("");
-  const [address2, setAddress2] = useState("");
-  const [villageOrTown, setVillageOrTown] = useState("");
-  const [pinCode, setPinCode] = useState("");
-  const [state, setState] = useState<string>("3"); // Default to Punjab
-  const [district, setDistrict] = useState<number | "">("");
-  const [tehsil, setTehsil] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [panPreviewUrl, setPanPreviewUrl] = useState(""); 
-  
-  let navigate = useNavigate();
-
-  const handleFileUploaded = (info: { formControlName: string; serverResponse: any }) => {
-    console.log('📁 [ESTABLISHED-FORM] File upload callback:', info);
-    const { formControlName, serverResponse } = info;
-    
-    const fileName = serverResponse.generatedFileNames.replace(/^,/, "");
-    const fileUrl = `${import.meta.env.VITE_UPLOAD_URL}Uploads/Documents/TempFiles/${fileName.trim()}`;
-    
-    console.log('📁 [ESTABLISHED-FORM] Generated file name:', fileName);
-    console.log('📁 [ESTABLISHED-FORM] Preview URL:', fileUrl);
-
-    if (formControlName === 'panAttachment') {
-      setApplicantPanAttachment(fileName);
-      setPanPreviewUrl(fileUrl);
-      console.log('📁 [ESTABLISHED-FORM] PAN attachment updated:', fileName);
-    }
-  };
-
-  // Location hook for dynamic dropdowns (reusing from register)
+  // All business logic is now handled by the useProjectSiteBusinessLogic hook
   const {
+    // Form State
+    projectSiteApplicationType,
+    applicantPanNumber,
+    address1,
+    address2,
+    villageOrTown,
+    pinCode,
+    state,
+    district,
+    tehsil,
+    isSubmitting,
+    panPreviewUrl,
+    
+    // Form State Setters
+    setProjectSiteApplicationType,
+    setApplicantPanNumber,
+    setAddress1,
+    setAddress2,
+    setVillageOrTown,
+    setState,
+    setTehsil,
+    
+    // Form Validation
+    errors,
+    
+    // Location Management
     districts,
     tehsils,
-    loading,
-    errors: locationErrors,
+    locationLoading,
     pincodeValidation,
-    loadDistricts,
-    loadTehsils,
-    validatePincode,
-    resetTehsils
-  } = useLocation();
-
-  // Form validation errors
-  const [errors, setErrors] = useState({
-    projectSiteApplicationType: "",
-    applicantPanNumber: "",
-    applicantPanAttachment: "",
-    address1: "",
-    state: "",
-    district: "",
-    tehsil: "",
-    pinCode: "",
-  });
-
-  useEffect(() => {
-    // Load districts for Punjab automatically on mount (like register.tsx)
-    console.log('🏢 [COMMON-APP-ESTABLISHED] Component mounted, loading districts for Punjab (ID: 3)');
-    loadDistricts(3);
-  }, [loadDistricts]);
-
-  // Handle district change (reusing logic from register)
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const districtCode = Number(e.target.value);
-    console.log('🏢 [COMMON-APP-ESTABLISHED] District changed:', districtCode);
     
-    setDistrict(districtCode);
-    setTehsil("");
-    resetTehsils();
+    // Business Logic Functions
+    handleSubmit,
+    handleFileUploaded,
+    handleDistrictChange,
+    handlePincodeChange
+  } = useProjectSiteBusinessLogic();
 
-    if (districtCode) {
-      console.log('🏢 [COMMON-APP-ESTABLISHED] Loading tehsils for district:', districtCode);
-      loadTehsils(districtCode);
-    } else {
-      console.log('🏢 [COMMON-APP-ESTABLISHED] District cleared or invalid, not loading tehsils');
-    }
-  };
-
-  // Handle pincode change with validation (reusing from register)
-  const handlePincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Only allow digits and limit to 6 characters
-    if (/^\d{0,6}$/.test(value)) {
-      setPinCode(value);
-      
-      // Validate when 6 digits are entered
-      if (value.length === 6) {
-        validatePincode(value);
-      }
-    }
-  };
-
-  // Handle PAN number change (format validation)
-  const handlePanChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-    // PAN format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
-    if (/^[A-Z]{0,5}[0-9]{0,4}[A-Z]?$/.test(value) && value.length <= 10) {
-      setApplicantPanNumber(value);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    console.log('🏢 [COMMON-APP-ESTABLISHED] === FORM SUBMISSION STARTED ===');
-    setIsSubmitting(true);
-
-    const newErrors: any = {};
-
-    // Basic validation
-    if (!projectSiteApplicationType.trim()) newErrors.projectSiteApplicationType = "Application Type is required";
-    if (!applicantPanNumber.trim()) newErrors.applicantPanNumber = "PAN Number is required";
-    if (!applicantPanAttachment.trim()) newErrors.applicantPanAttachment = "PAN Attachment is required";
-    if (!address1.trim()) newErrors.address1 = "Address Line 1 is required";
-    if (!state) newErrors.state = "State is required";
-    if (!district) newErrors.district = "District is required";
-    if (!tehsil) newErrors.tehsil = "Tehsil is required";
-    
-    // PAN validation
-    if (applicantPanNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(applicantPanNumber)) {
-      newErrors.applicantPanNumber = "Invalid PAN format (e.g., ABCDE1234F)";
-    }
-    
-    // Pincode validation
-    if (!pinCode.trim()) {
-      newErrors.pinCode = "Pincode is required";
-    } else if (!pincodeValidation.isValid) {
-      newErrors.pinCode = pincodeValidation.error || "Invalid pincode";
-    }
-    
-    setErrors(newErrors);
-    
-    if (Object.keys(newErrors).length === 0) {
-      console.log('✅ [ESTABLISHED-SUBMIT] Form validation passed');
-      console.log('✅ [ESTABLISHED-SUBMIT] Calling save...');
-      await save();
-    } else {
-      console.log('❌ [ESTABLISHED-SUBMIT] Form validation failed:', newErrors);
-      setIsSubmitting(false);
-    }
-  };
-
-  // Updated save function using axiosInterceptor (like UserDetails form)
-  const save = async () => {
-  try {
-    console.log('💾 [ESTABLISHED-SAVE] Starting project site submission');
-    console.log('💾 [ESTABLISHED-SAVE] Timestamp:', new Date().toISOString());
-
-    // Step 1: Check for duplicate PAN using axiosInterceptor
-    console.log('🔍 [ESTABLISHED-SAVE] Checking duplicate PAN...');
-    try {
-      const panCheckResponse = await axiosInterceptor.get<any>(
-        `/ProjectSites/getProjectSitesPanDetails?panno=${applicantPanNumber}`
-      );
-      
-      console.log('🔍 [ESTABLISHED-SAVE] PAN check result:', panCheckResponse);
-      
-      if (panCheckResponse.success && panCheckResponse.data?.formModel !== null) {
-        alert('PAN Number already exists, please try different PAN Number');
-        setIsSubmitting(false);
-        return;
-      }
-    } catch (panError) {
-      console.log('🔍 [ESTABLISHED-SAVE] PAN check failed, continuing anyway:', panError);
-      // Continue with save if PAN check fails
-    }
-
-    // Step 2: Get client IP from stored clientId
-    let clientIP = "::1"; // default
-    try {
-      const clientIdData = localStorage.getItem('clientId');
-      if (clientIdData) {
-        const parsed = JSON.parse(clientIdData);
-        clientIP = parsed.ip || clientIP;
-      }
-    } catch (e) {
-      console.log('📱 [ESTABLISHED-SAVE] Using default client IP');
-    }
-
-    // Step 3: Prepare form data - FIX THE STRUCTURE
-    const token = JSON.parse(localStorage.getItem('token') || '{}');
-    
-    if (!token.userId) {
-      throw new Error('No userId found in token');
-    }
-    
-    const userRefId = parseInt(encryptionService.get(token.userId));
-    const projectSiteId = token.projectSiteId ? parseInt(encryptionService.get(token.projectSiteId)) : 0;
-    
-    console.log('🔑 [ESTABLISHED-SAVE] Decrypted userRefId:', userRefId);
-    console.log('🔑 [ESTABLISHED-SAVE] Decrypted projectSiteId:', projectSiteId);
-    
-    // FIX: Use the exact same structure as Angular version
-    const formData = {
-      ProjectSiteApplicationType: parseInt(projectSiteApplicationType), // PascalCase
-      ApplicantPanNumber: applicantPanNumber, // PascalCase
-      ApplicantPanAttachment: applicantPanAttachment, // PascalCase
-      Address1: address1, // PascalCase
-      Address2: address2 || '', // PascalCase
-      VillageOrTown: villageOrTown || '', // PascalCase
-      PinCode: parseInt(pinCode), // PascalCase
-      State: parseInt(state), // PascalCase
-      DistrictRefId: parseInt(district.toString()), // PascalCase
-      TehsilRefId: parseInt(tehsil), // PascalCase
-      IsActive: true, // PascalCase
-      IsDelete: false, // PascalCase
-      CreatedOnDate: new Date().toISOString(), // Use standard ISO string
-      LastModifiedOnDate: new Date().toISOString(), // PascalCase
-      UserRefId: userRefId, // PascalCase
-      ProjectSiteId: projectSiteId, // PascalCase
-      ClientIPAddress: clientIP // PascalCase
-    };
-
-    // Format all DateTime fields for PostgreSQL compatibility
-    console.log('📦 [ESTABLISHED-SAVE] Clean form data (no duplicates):', formData);
-
-    // Step 4: FIX THE API ENDPOINT - Use singular form
-    const response = await axiosInterceptor.post<any>(
-      '/ProjectSites/addUpdate_ProjectSites',
-      formData
-    );
-
-    console.log('✅ [ESTABLISHED-SAVE-RESPONSE] === API RESPONSE RECEIVED ===');
-    console.log('✅ [ESTABLISHED-SAVE-RESPONSE] Raw response:', response);
-    
-    if (response.success) {
-      // FIX: Check the actual response structure and update token properly
-      console.log('✅ [ESTABLISHED-SAVE] Response data structure:', response.data);
-      
-      // Update token with new projectSiteId - check different possible response structures
-      let newProjectSiteId = null;
-      
-      if (response.data?.applicationInitiateResponse?.projectSiteId) {
-        newProjectSiteId = response.data.applicationInitiateResponse.projectSiteId;
-      } else if (response.data?.projectSiteId) {
-        newProjectSiteId = response.data.projectSiteId;
-      } else if (response.data?.data?.projectSiteId) {
-        newProjectSiteId = response.data.data.projectSiteId;
-      } else if (response.data?.formModel?.projectSiteId) {
-        newProjectSiteId = response.data.formModel.projectSiteId;
-      }
-      
-      console.log('✅ [ESTABLISHED-SAVE] Extracted projectSiteId:', newProjectSiteId);
-      
-      if (newProjectSiteId) {
-        const token = JSON.parse(localStorage.getItem('token') || '{}');
-        token.projectSiteId = encryptionService.set(newProjectSiteId.toString());
-        localStorage.setItem('token', JSON.stringify(token));
-        console.log('✅ [ESTABLISHED-SAVE] Token updated with projectSiteId:', newProjectSiteId);
-        
-        // Force a slight delay before navigation to ensure token is updated
-        setTimeout(() => {
-          console.log('✅ [ESTABLISHED-SAVE] Navigating to dashboard...');
-          navigate('/dashboard');
-        }, 100);
-      } else {
-        console.log('⚠️ [ESTABLISHED-SAVE] No projectSiteId found in response, navigating anyway');
-        navigate('/dashboard');
-      }
-    } else {
-      throw new Error(response.error || 'Failed to save project site');
-    }
-  } catch (error) {
-    console.error('❌ [ESTABLISHED-SAVE] Error:', error);
-    
-    // Enhanced error handling to show exact error
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as any;
-      console.error('❌ [ESTABLISHED-SAVE] Axios error response:', axiosError.response?.data);
-      console.error('❌ [ESTABLISHED-SAVE] Axios error status:', axiosError.response?.status);
-      console.error('❌ [ESTABLISHED-SAVE] Axios error headers:', axiosError.response?.headers);
-      
-      // Show more specific error message
-      const errorMessage = axiosError.response?.data?.message || 
-                          axiosError.response?.data?.error || 
-                          axiosError.message || 
-                          'Unknown error occurred';
-      alert(`Failed to save project site details: ${errorMessage}`);
-    } else {
-      alert(`Failed to save project site details: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  } finally {
-    console.log('🏁 [ESTABLISHED-SAVE] Setting isSubmitting to false');
-    setIsSubmitting(false);
-  }
-};
+  // All business logic is now handled by the useProjectSiteBusinessLogic hook
 
   return (
     <div className="registeration-bg min-vh-100" style={{ padding: "5px", backgroundColor: "#f8f9fa", marginTop: "80px" }}>
@@ -517,11 +265,8 @@ const CommonApplicationFormEstablished: React.FC = () => {
                             <option value="3">Punjab</option>
                           </Form.Select>
                           <div className="d-flex align-items-center mt-1">
-                            {loading.states && (
-                              <Spinner animation="border" size="sm" className="me-2" />
-                            )}
                             <div className="text-danger" style={{ fontSize: '12px' }}>
-                              {errors.state || locationErrors.states}
+                              {errors.state}
                             </div>
                           </div>
                         </Form.Group>
@@ -536,21 +281,21 @@ const CommonApplicationFormEstablished: React.FC = () => {
                             value={district}
                             onChange={handleDistrictChange}
                             isInvalid={!!errors.district}
-                            disabled={isSubmitting || loading.districts}
+                            disabled={isSubmitting || locationLoading}
                           >
                             <option value="">-select-</option>
-                            {districts.map((district) => (
-                              <option key={district.districtCode} value={district.districtCode}>
-                                {district.districtName}
+                            {districts.map((districtItem: any) => (
+                              <option key={districtItem.districtCode || districtItem.id} value={districtItem.districtCode || districtItem.id}>
+                                {districtItem.districtName || districtItem.name}
                               </option>
                             ))}
                           </Form.Select>
                           <div className="d-flex align-items-center mt-1">
-                            {loading.districts && (
+                            {locationLoading && (
                               <Spinner animation="border" size="sm" className="me-2" />
                             )}
                             <div className="text-danger" style={{ fontSize: '12px' }}>
-                              {errors.district || locationErrors.districts}
+                              {errors.district}
                             </div>
                           </div>
                         </Form.Group>
@@ -565,21 +310,21 @@ const CommonApplicationFormEstablished: React.FC = () => {
                             value={tehsil}
                             onChange={(e) => setTehsil(e.target.value)}
                             isInvalid={!!errors.tehsil}
-                            disabled={isSubmitting || loading.tehsils || !district}
+                            disabled={isSubmitting || locationLoading || !district}
                           >
                             <option value="">-select-</option>
-                            {tehsils.map((tehsil) => (
-                              <option key={tehsil.tehsilId} value={tehsil.tehsilId}>
-                                {tehsil.tehsilName}
+                            {tehsils.map((tehsilItem: any) => (
+                              <option key={tehsilItem.tehsilId || tehsilItem.id} value={tehsilItem.tehsilId || tehsilItem.id}>
+                                {tehsilItem.tehsilName || tehsilItem.name}
                               </option>
                             ))}
                           </Form.Select>
                           <div className="d-flex align-items-center mt-1">
-                            {loading.tehsils && (
+                            {locationLoading && (
                               <Spinner animation="border" size="sm" className="me-2" />
                             )}
                             <div className="text-danger" style={{ fontSize: '12px' }}>
-                              {errors.tehsil || locationErrors.tehsils}
+                              {errors.tehsil}
                             </div>
                           </div>
                         </Form.Group>

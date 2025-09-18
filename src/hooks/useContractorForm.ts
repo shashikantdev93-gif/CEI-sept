@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from './useLocation';
-import { userDetailsService } from '../services/api/userDetailsService';
-import type { WorkingArea, Instrument, Partner, PartnerPayload } from '../types/contractor.types';
+import { applicationServices } from '../services/api/applicationServices';
+import type { WorkingArea, Instrument, Partner } from '../types/contractor.types';
 import { ProjectSiteDataMapper } from '../utils/projectSiteDataMapper';
 import { 
   INSTRUMENT_LISTS, 
   WORKING_AREA_ERRORS, 
   WORKING_AREA_SUCCESS_MESSAGES,
-  CONTRACTOR_TYPE_MAPPING,
-  VOLTAGE_TYPE_MAPPING,
   getContractorTypeEnum,
   getVoltageTypeEnum,
   getRangeUnitEnum,
@@ -76,7 +74,6 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   
   const [isAddingInstrument, setIsAddingInstrument] = useState(false);
   const [instrumentFormSubmitted, setInstrumentFormSubmitted] = useState(false);
-  const [workingTehsilList, setWorkingTehsilList] = useState<Array<{tehsilRefId: number, tehsilName: string}>>([]);
 
   // Partner State (Angular naming: shareHolderForm, partnerList)
   const [partnerName, setPartnerName] = useState("");
@@ -124,7 +121,6 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
   
   // ✅ FIX: Project Site extracted IDs (for payload construction)
   const [projectSiteContractorLicenceId, setProjectSiteContractorLicenceId] = useState<number | undefined>();
-  const [projectSiteApprefId, setProjectSiteApprefId] = useState<number | undefined>();
   const { districts, tehsils, loading, errors: locationErrors, loadDistricts, loadTehsils, resetTehsils } = useLocation();
   const [workingAreaFormErrors, setWorkingAreaFormErrors] = useState<{
     district?: string;
@@ -231,7 +227,6 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       }
       
       if (contractorData.apprefId) {
-        setProjectSiteApprefId(contractorData.apprefId);
         console.log('✅ [CONTRACTOR-FORM] ApprefId captured from project site:', contractorData.apprefId);
       }
 
@@ -441,7 +436,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     try {
       console.log('📞 [CONTRACTOR-FORM] Making API call to getContractorApplicationDetailsById...');
       
-      const response = await userDetailsService.getContractorApplicationDetailsById(currentAppId);
+      const response = await applicationServices.getContractorApplicationDetailsById(currentAppId);
       
       console.log('📥 [CONTRACTOR-FORM] ===== RAW API RESPONSE ANALYSIS =====');
       console.log('📥 [CONTRACTOR-FORM] - Response object type:', typeof response);
@@ -509,7 +504,8 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
           instrumentType: getInstrumentTypeName(inst.applicationInstrumentsType),
           instrumentSerialNo: inst.instrumentSerialNo,
           instrumentMake: inst.instrumentMakeBy,
-          instrumentRange: `${inst.instrumentStartRange}-${inst.instrumentEndRange} ${getRangeUnitName(inst.applicationInstrumentRange)}`,
+          // Match Angular: just show the range unit, not start-end format
+          instrumentRange: getRangeUnitName(inst.applicationInstrumentRange),
           district: inst.districtName || '',
           tehsil: inst.tehsilName || '',
           districtRefId: inst.districtRefId,
@@ -902,7 +898,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('🌐 [ADD-WORKING-AREA] Making API call to backend...');
       setIsAddingWorkingArea(true); // Show spinner (matches Angular this.spinner.show())
       
-      const response = await userDetailsService.createContractorWorkingArea(workingAreaPayload);
+      const response = await applicationServices.createContractorWorkingArea(workingAreaPayload);
       
       console.log('📥 [ADD-WORKING-AREA] API Response received:', response);
 
@@ -1199,7 +1195,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
 
     try {
       const serialNumberToCheck = instrumentSerialNo.toUpperCase();
-      const duplicateCheckResponse = await userDetailsService.validateInstrumentSerialNumber(serialNumberToCheck);
+      const duplicateCheckResponse = await applicationServices.validateInstrumentSerialNumber(serialNumberToCheck);
       
       if (duplicateCheckResponse.data?.formModel && duplicateCheckResponse.data.formModel.length > 0) {
         setSaveError('This Instrument Serial Number Already Exists');
@@ -1242,7 +1238,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         tehsilName: selectedTehsil?.tehsilName || ''
       };
 
-      const result = await userDetailsService.addInstrument(instrumentPayload);
+      const result = await applicationServices.addInstrument(instrumentPayload);
 
       if (result?.success) {
         const newInstrument: Instrument = {
@@ -1347,7 +1343,6 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       isValid = false;
     } else {
       // Additional file validation (size, type - Angular equivalent)
-      const maxFileSize = 5 * 1024 * 1024; // 5MB
       if (partnerPhoto.length > 500) { // Assuming base64 or filename length check
         // This would be more sophisticated in real implementation
         console.log('🔍 [VALIDATE-PARTNER] Partner photo validation passed');
@@ -1420,7 +1415,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('🔍 [ADD_PARTNER] API endpoint: ProjectSites/getProjectSitesPanDetails');
       console.log('🔍 [ADD_PARTNER] API payload:', { panno: panNo.toUpperCase() });
       
-      const panValidationResponse = await userDetailsService.checkPANExists(panNo.toUpperCase());
+      const panValidationResponse = await applicationServices.checkPANExists(panNo.toUpperCase());
       
       console.log('📥 [ADD_PARTNER] ===== PAN VALIDATION RESPONSE =====');
       console.log('📥 [ADD_PARTNER] PAN validation response received:', panValidationResponse.data);
@@ -1475,7 +1470,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('📤 [ADD_PARTNER] API endpoint: ContractorLicence/addUpdateContract_PartnerDetails');
       console.log('📤 [ADD_PARTNER] HTTP method: POST');
       
-      const result = await userDetailsService.addPartner(partnerPayload);
+      const result = await applicationServices.addPartner(partnerPayload);
       
       console.log('📥 [ADD_PARTNER] ===== API RESPONSE =====');
       console.log('📥 [ADD_PARTNER] Partner creation response:', result);
@@ -1644,7 +1639,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('🌐 [DELETE_WORKING_AREA] workingTehsilId:', mappingId);
 
       // ✅ FIX: Use Angular's exact parameter name and format
-      const response = await userDetailsService.deleteContractorWorkingArea(Number(mappingId));
+      const response = await applicationServices.deleteContractorWorkingArea(Number(mappingId));
       
       console.log('🎉 [DELETE_WORKING_AREA] ===== DELETE API RESPONSE RECEIVED =====');
       console.log('🎉 [DELETE_WORKING_AREA] API Response data:', response);
@@ -1842,7 +1837,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('🔧 [ADD_INSTRUMENT] Serial number to check:', serialNumberToCheck);
       console.log('🌐 [ADD_INSTRUMENT] Making API call to ContractorLicence/getContract_InstrumentDetails');
       
-      const duplicateCheckResponse = await userDetailsService.validateInstrumentSerialNumber(serialNumberToCheck);
+      const duplicateCheckResponse = await applicationServices.validateInstrumentSerialNumber(serialNumberToCheck);
       console.log('📡 [ADD_INSTRUMENT] ===== DUPLICATE CHECK API RESPONSE =====');
       console.log('📡 [ADD_INSTRUMENT] Response data:', duplicateCheckResponse);
       console.log('📡 [ADD_INSTRUMENT] formModel length:', duplicateCheckResponse.data?.formModel?.length || 0);
@@ -1939,7 +1934,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
       console.log('🌐 [ADD_INSTRUMENT] API endpoint: ContractorLicence/addUpdateContract_InstrumentDetails');
 
       // Step 6: API Call (Angular: this.apiService.httpPost)
-      const response = await userDetailsService.addInstrument(instrumentPayload);
+      const response = await applicationServices.addInstrument(instrumentPayload);
 
       console.log('📡 [ADD_INSTRUMENT] ===== ADD INSTRUMENT API RESPONSE =====');
       console.log('📡 [ADD_INSTRUMENT] Response data:', response);
@@ -2014,7 +2009,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     try {
       console.log('✅ [DELETE_INSTRUMENT] User confirmed deletion');
       
-      const response = await userDetailsService.deleteInstrument(instrumentItem.id);
+      const response = await applicationServices.deleteInstrument(instrumentItem.id);
 
       if (response.success) {
         console.log('✅ [DELETE_INSTRUMENT] Instrument deleted successfully');
@@ -2076,12 +2071,12 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
         if (instrumentToDelete.contactInstrumentId && typeof instrumentToDelete.contactInstrumentId === 'number' && instrumentToDelete.contactInstrumentId > 0) {
           console.log('🔄 [DELETE_INSTRUMENT] Calling delete API for existing instrument');
           console.log('🔄 [DELETE_INSTRUMENT] contactInstrumentId:', instrumentToDelete.contactInstrumentId);
-          console.log('🔄 [DELETE_INSTRUMENT] API call: userDetailsService.deleteInstrument()');
+          console.log('🔄 [DELETE_INSTRUMENT] API call: applicationServices.deleteInstrument()');
           console.log('🔄 [DELETE_INSTRUMENT] ===== MAKING DELETE API CALL =====');
           
           try {
             // Call Angular-equivalent delete API
-            const result = await userDetailsService.deleteInstrument(instrumentToDelete.contactInstrumentId);
+            const result = await applicationServices.deleteInstrument(instrumentToDelete.contactInstrumentId);
             
             console.log('✅ [DELETE_INSTRUMENT] ===== DELETE API RESPONSE =====');
             console.log('✅ [DELETE_INSTRUMENT] API call completed');
@@ -2162,7 +2157,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
           console.log('🔄 [DELETE_PARTNER] Calling API to delete existing partner');
           
           try {
-            const result = await userDetailsService.deletePartner(partnerToDelete.id);
+            const result = await applicationServices.deletePartner(partnerToDelete.id);
             
             if (result?.success) {
               console.log('✅ [DELETE_PARTNER] Partner deleted from database successfully');
@@ -2259,7 +2254,7 @@ export const useContractorForm = (draftApplicationId?: number | null) => {
     
     try {
       console.log('🔍 [INSTRUMENT-VALIDATION] Making API call to validate uniqueness');
-      const response = await userDetailsService.validateInstrumentSerialNumber(serialToCheck);
+      const response = await applicationServices.validateInstrumentSerialNumber(serialToCheck);
       
       console.log('📥 [INSTRUMENT-VALIDATION] API response received:', response);
       console.log('📥 [INSTRUMENT-VALIDATION] Response data:', response.data);

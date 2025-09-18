@@ -5,7 +5,7 @@ import UploadData from '../../components/PageComponent/UploadData';
 import type { DocumentItem } from '../../components/PageComponent/UploadData';
 import encryptionService from '../../lib/encryptionService';
 import SweetAlert from 'sweetalert2';
-import { userDetailsService } from '../../services/api/userDetailsService';
+import { applicationServices } from '../../services/api/applicationServices';
 
 const ContractorDocuments: React.FC = () => {
   const navigate = useNavigate();
@@ -148,7 +148,7 @@ const ContractorDocuments: React.FC = () => {
       setDocumentsError(null);
       try {
         console.log("Fetching allowed documents for appRefId:", applicationContext.appRefId);
-        const response = await userDetailsService.getApplicationTypeAllowDoc(applicationContext.appRefId);
+        const response = await applicationServices.getApplicationTypeAllowDoc(applicationContext.appRefId);
         
         if (response && response.data && Array.isArray(response.data)) {
           console.log("Fetched allowed documents:", response.data);

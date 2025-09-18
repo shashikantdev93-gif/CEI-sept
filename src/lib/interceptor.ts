@@ -84,23 +84,6 @@ class AxiosInterceptor {
   }
 }
 
-  private async checkGeolocation(): Promise<boolean> {
-    if (!('geolocation' in navigator)) {
-      console.error('Geolocation is not supported');
-      return false;
-    }
-
-    try {
-      await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 20000 });
-      });
-      return true;
-    } catch (error) {
-      console.error('Geolocation error:', error);
-      return false;
-    }
-  }
-
   private setupInterceptors(): void {
     // Request Interceptor
     this.instance.interceptors.request.use(

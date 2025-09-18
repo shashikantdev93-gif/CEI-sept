@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import encryptionService from '../../lib/encryptionService';
-import { userDetailsService } from '../../services/api/userDetailsService';
+import { applicationServices } from '../../services/api/applicationServices';
 import type { SupervisorData, WiremanData } from '../../types/supervisor.types';
 
 interface PageData {
@@ -119,7 +119,7 @@ export const useSupervisorPageData = (): UseSupervisorPageDataReturn => {
       console.log('📋 [PAGE-DATA] Loading contractor data for appRefId:', appRefId);
       
       // Load contractor details
-      const contractorResponse = await userDetailsService.getContractorWorkerDetails(appRefId);
+      const contractorResponse = await applicationServices.getContractorWorkerDetails(appRefId);
       
       if (!contractorResponse?.data) {
         console.warn('⚠️ [PAGE-DATA] No contractor data received');

@@ -3,11 +3,6 @@
 
 import encryptionService from '../../lib/encryptionService';
 
-const API_BASE_URL = 'http://localhost:5143'; // Replace with your actual backend URL
-
-// Debug flag to enable test mode if backend fails
-const ENABLE_FALLBACK_TEST_MODE = true;
-
 export interface UserDetailsData {
   firstName: string;
   middleName?: string;

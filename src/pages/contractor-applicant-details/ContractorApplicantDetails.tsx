@@ -1,0 +1,1729 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { Container, Row, Col, Card, Form, Button, Spinner } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import DataTable from '../../components/shared-component/DataTable';
+import FileUpload from '../../components/FileUpload';
+import { useContractorBusinessLogic } from '../../modules/contractor/hooks/useContractorBusinessLogic';
+import { applicationServices } from '../../services/api/applicationServices';
+import { ContractorPayloadBuilder } from '../../services/contractorPayloadBuilder';
+import encryptionService from '../../lib/encryptionService';
+import { 
+  CONTRACTOR_TYPES, 
+  VOLTAGE_TYPES, 
+  RANGE_UNITS
+} from '../../constants/contractor';
+
+const ContractorApplicantDetails: React.FC = () => {
+  const navigate = useNavigate();
+  
+  // ✅ CRITICAL: Determine draftApplicationId IMMEDIATELY before hook call (Angular parity)
+  const getDraftApplicationId = (): number | null => {
+    console.log('🔗 [CONTRACTOR-DETAILS] ===== IMMEDIATE DRAFT ID DETECTION =====');
+    
+    // Step 1: Check localStorage first (primary Angular method)
+    const applicationIdFromStorage = localStorage.getItem('ApplicationId');
+    const inspectionTypeFromStorage = localStorage.getItem('InspectionType');
+    
+    console.log('📱 [CONTRACTOR-DETAILS] localStorage check:', {
+      ApplicationId: applicationIdFromStorage,
+      InspectionType: inspectionTypeFromStorage
+    });
+    
+    if (applicationIdFromStorage && inspectionTypeFromStorage === 'Contractor') {
+      const numericAppId = parseInt(applicationIdFromStorage);
+      if (!isNaN(numericAppId) && numericAppId > 0) {
+        console.log('✅ [CONTRACTOR-DETAILS] Draft navigation detected via localStorage:', numericAppId);
+        return numericAppId;
+      }
+    }
+    
+    // Step 2: Check URL parameters as fallback
+    const urlParams = new URLSearchParams(window.location.search);
+    const appRefIdFromUrl = urlParams.get('appRefId') || 
+                           urlParams.get('applicationId') || 
+                           urlParams.get('appId') ||
+                           urlParams.get('ApplicationId');
+    
+    console.log('🔗 [CONTRACTOR-DETAILS] URL parameter check:', {
+      appRefId: urlParams.get('appRefId'),
+      applicationId: urlParams.get('applicationId'),
+      appId: urlParams.get('appId'),
+      ApplicationId: urlParams.get('ApplicationId'),
+      finalValue: appRefIdFromUrl
+    });
+    
+    if (appRefIdFromUrl) {
+      const numericAppRefId = parseInt(appRefIdFromUrl);
+      if (!isNaN(numericAppRefId) && numericAppRefId > 0) {
+        console.log('✅ [CONTRACTOR-DETAILS] AppRefId found in URL parameters:', numericAppRefId);
+        return numericAppRefId;
+      }
+    }
+    
+    // Step 3: Check sessionStorage as final fallback
+    const draftData = sessionStorage.getItem('draftApplicationData');
+    if (draftData) {
+      try {
+        const parsedData = JSON.parse(draftData);
+        if (parsedData.appId || parsedData.ApplicationId) {
+          const appId = parsedData.appId || parsedData.ApplicationId;
+          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected from sessionStorage, appId:', appId);
+          return appId;
+        }
+      } catch (error) {
+        console.error('❌ [CONTRACTOR-DETAILS] Error parsing draft data:', error);
+      }
+    }
+    
+    console.log('ℹ️ [CONTRACTOR-DETAILS] No draft navigation detected - user may be creating new application');
+    return null;
+  };
+
+  // ✅ Get draft ID IMMEDIATELY and synchronously before hook call
+  const draftApplicationId = getDraftApplicationId();
+  console.log('🎯 [CONTRACTOR-DETAILS] Final draftApplicationId for hook:', draftApplicationId);
+
+  const {
+  // Form States
+  applicant_name, setApplicantName,
+  address, setAddress,
+  panCardNumber, setPanCardNumber,
+  contractorType,
+  currentWorkingVoltage,
+  signeeNameOnBehalfOfCompany, setSigneeNameOnBehalfOfCompany,
+  businessEntity, setBusinessEntity,
+  businessEntityAddress, setBusinessEntityAddress,
+  
+  // Working Area States (Angular naming: workingAreaList)
+  workingOnDistrict,
+  workingOnTehsil,
+  workingAreaList,
+  workingAreaFormErrors,      
+  
+  // Instrument States
+  instrument, setInstrument,
+  instrumentSerialNo,
+  instrumentMake,
+  instrumentRangeFrom, setInstrumentRangeFrom,
+  instrumentRangeTo, setInstrumentRangeTo,
+  instrumentRangeUnit, setInstrumentRangeUnit,
+  instrumentDistrict,         
+  instrumentTehsil,             
+  instruments,
+  selectedInstrumentList,
+  isAddingInstrument,
+  instrumentFormErrors,
+  
+  // Partner States
+  partnerName, setPartnerName,
+  partnerEmail, setPartnerEmail,
+  partnerContactNumber, setPartnerContactNumber,
+  partnerPhoto,
+  uploadPan,
+  panNo, setPanNo,
+  partners,
+  partnerPhotoPreviewUrl,
+  uploadPanPreviewUrl,
+  
+  // Application States
+  isInitialLoad,
+  saveSuccess, setSaveSuccess,
+  saveError, setSaveError,
+  isAddingWorkingArea,
+  
+  // Location States
+  districts,
+  tehsils,
+  loading,
+  locationErrors,
+  projectSiteLoading,
+  projectSiteError,
+  
+  // Handler Functions (Angular naming: addWorkingArea)
+  handleWorkingDistrictChange,
+  handleInstrumentDistrictChange,
+  handleInstrumentTehsilChange,  
+  handleContractorTypeChange,
+  handleCurrentWorkingVoltageChange,
+  handleWorkingTehsilChange,
+  addWorkingArea,
+  handleAddInstrumentDetails, // ✅ Enhanced Angular parity version
+  handleAddPartner,
+  handleDeleteWorkingArea,
+  handleDeleteInstrument,
+  handleDeletePartner,
+  handleFileUploaded,
+  handleInstrumentSerialNoChange,
+  handleInstrumentSerialNoBlur,
+  handleInstrumentMakeChange,
+  
+  // Refresh function for draft data (Angular naming: getContractorApplicationDetails)
+  getContractorApplicationDetails,
+
+  // Application management (Angular naming: apprefId)
+  apprefId,
+
+  // ✅ FIX: ID fields from applicationData (Angular parity)
+  contractorLicenceId: hookContractorLicenceId,
+
+  // Field State Management (Angular parity)
+  applicationData,
+  hideContractorElementsForLockPage,
+  areFieldsDisabled,
+  fieldStateDebug,
+  
+  // ✅ PHASE 2: Validation functions (from useContractorValidation)
+  validateForm,
+  validateWorkingAreas,
+  validateInstruments,
+  calculateLicenseValidity,
+  showValidationErrors,
+  showWorkingAreaError,
+  showInstrumentError
+  
+} = useContractorBusinessLogic(draftApplicationId);
+
+  // ✅ DEBUG: Monitor dropdown values for troubleshooting
+  useEffect(() => {
+    console.log('🔍 [CONTRACTOR-DETAILS] ===== DROPDOWN VALUES DEBUG =====');
+    console.log('🔍 [CONTRACTOR-DETAILS] contractorType:', contractorType);
+    console.log('🔍 [CONTRACTOR-DETAILS] currentWorkingVoltage:', currentWorkingVoltage);
+    console.log('🔍 [CONTRACTOR-DETAILS] draftApplicationId:', draftApplicationId);
+    console.log('🔍 [CONTRACTOR-DETAILS] apprefId:', apprefId);
+    console.log('🔍 [CONTRACTOR-DETAILS] ===============================');
+  }, [contractorType, currentWorkingVoltage, draftApplicationId, apprefId]);
+
+  // ADD: Trigger data refresh when draftApplicationId is set (Angular naming: getContractorApplicationDetails)
+  useEffect(() => {
+    if (draftApplicationId && getContractorApplicationDetails) {
+      console.log('🔄 [CONTRACTOR-DETAILS] Triggering contractor data refresh for appId:', draftApplicationId);
+      getContractorApplicationDetails();
+    }
+  }, [draftApplicationId, getContractorApplicationDetails]);
+
+  // ADD: Field State Debug Logging (Angular parity verification)
+  useEffect(() => {
+    if (fieldStateDebug.hasApplicationData) {
+      console.log('🔒 [CONTRACTOR-DETAILS] Field State Debug:', fieldStateDebug);
+      console.log('🔒 [CONTRACTOR-DETAILS] Fields will be disabled:', areFieldsDisabled);
+    }
+  }, [fieldStateDebug, areFieldsDisabled]);
+
+  // ADD: Debug state changes
+  React.useEffect(() => {
+    console.log('🎯 [CONTRACTOR-COMPONENT] State Debug:');
+    console.log('🎯 [CONTRACTOR-COMPONENT] isInitialLoad:', isInitialLoad);
+    console.log('🎯 [CONTRACTOR-COMPONENT] projectSiteLoading:', projectSiteLoading);
+    console.log('🎯 [CONTRACTOR-COMPONENT] applicant_name:', applicant_name);
+    console.log('🎯 [CONTRACTOR-COMPONENT] address:', address);
+    console.log('🎯 [CONTRACTOR-COMPONENT] panCardNumber:', panCardNumber);
+    console.log('🎯 [CONTRACTOR-COMPONENT] loading.districts:', loading.districts);
+  }, [isInitialLoad, projectSiteLoading, applicant_name, address, panCardNumber, loading.districts]);
+
+  // Clean up navigation flags
+  React.useEffect(() => {
+    sessionStorage.removeItem('allowContractorDetailsNavigation');
+    return () => {
+      sessionStorage.removeItem('allowContractorDetailsNavigation');
+    };
+  }, []);
+
+  React.useEffect(() => {
+  if (saveSuccess) {
+    const timer = setTimeout(() => {
+      setSaveSuccess(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }
+}, [saveSuccess, setSaveSuccess]);
+
+// Auto-hide error messages after 8 seconds (OPTIONAL - ADD THIS TOO)
+  React.useEffect(() => {
+    if (saveError) {
+      const timer = setTimeout(() => {
+        setSaveError(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveError, setSaveError]);
+
+  const handleBack = () => navigate(-1);
+
+  // ✅ COMPLETE SAVE & NEXT IMPLEMENTATION (Angular Parity)
+  const [isSaving, setIsSaving] = useState(false);
+  // ✅ FIX: Use contractorLicenceId from hook instead of local state (Angular parity)
+  const contractorLicenceId = hookContractorLicenceId;
+  const [contractorFormMode] = useState<string>('new'); // TODO: Get from props/context
+
+  const handleSaveAndNext = async () => {
+    console.log('💾 [SAVE_AND_NEXT] ===== SAVE & NEXT FUNCTION STARTED =====');
+    console.log('💾 [SAVE_AND_NEXT] Function: handleSaveAndNext()');
+    console.log('💾 [SAVE_AND_NEXT] Current application state:', applicationData);
+    console.log('💾 [SAVE_AND_NEXT] Is application locked:', applicationData?.isLocked);
+    console.log('💾 [SAVE_AND_NEXT] Current apprefId:', apprefId);
+    console.log('💾 [SAVE_AND_NEXT] Current contractorLicenceId:', contractorLicenceId);
+    console.log('💾 [SAVE_AND_NEXT] Current apprefId:', apprefId);
+    console.log('💾 [SAVE_AND_NEXT] Current applicationData:', applicationData);
+    console.log('💾 [SAVE_AND_NEXT] Current draftApplicationId:', draftApplicationId);
+    console.log('💾 [SAVE_AND_NEXT] Contract form mode:', contractorFormMode);
+    console.log('💾 [SAVE_AND_NEXT] Contractor type:', contractorType);
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+
+      // Branch 1: Application is locked - Direct navigation
+      if (applicationData?.isLocked) {
+        console.log('🔒 [SAVE_AND_NEXT] Application is locked, preparing direct navigation');
+        handleLockedApplicationNavigation();
+        return;
+      }
+
+      // Branch 2: Application is not locked - Full validation and save flow
+      console.log('✅ [SAVE_AND_NEXT] Application is not locked, proceeding with validation');
+
+      // Step 1: Form validation
+      const formValidationResult = validateForm({
+        applicant_name: applicant_name || '',
+        address: address || '',
+        panCardNumber: panCardNumber || '',
+        contractorType: contractorType || '',
+        currentWorkingVoltage: currentWorkingVoltage || '',
+        signeeNameOnBehalfOfCompany: signeeNameOnBehalfOfCompany || '',
+        businessEntity: businessEntity || '',
+        businessEntityAddress: businessEntityAddress || ''
+      });
+
+      if (!formValidationResult.isValid) {
+        showValidationErrors(formValidationResult.errors || []);
+        return;
+      }
+
+      // Step 2: Working area validation
+      const workingAreaValidationResult = validateWorkingAreas(workingAreaList || []);
+      if (!workingAreaValidationResult.isValid) {
+        showWorkingAreaError();
+        return;
+      }
+
+      // Step 3: Instrument validation
+      const instrumentValidationResult = validateInstruments(
+        (instruments || []).map(inst => ({
+          districtRefId: inst.districtRefId || 0,
+          tehsilRefId: inst.tehsilRefId || 0,
+          instrumentType: inst.instrumentType,
+          applicationInstrumentsType: inst.applicationInstrumentsType
+        })),
+        selectedInstrumentList || [],
+        workingAreaList || []
+      );
+      if (!instrumentValidationResult.isValid) {
+        showInstrumentError(instrumentValidationResult.details);
+        return;
+      }
+
+      // Step 4: Calculate license validity
+      const licenseCalculation = calculateLicenseValidity(currentWorkingVoltage || '1');
+
+      // Step 5: Build contractor payload (Angular Parity)
+      console.log('🏗️ [SAVE_AND_NEXT] ===== PRE-PAYLOAD DEBUG =====');
+      console.log('🏗️ [SAVE_AND_NEXT] contractorType value:', contractorType);
+      console.log('🏗️ [SAVE_AND_NEXT] currentWorkingVoltage value:', currentWorkingVoltage);
+      console.log('🏗️ [SAVE_AND_NEXT] panCardNumber value:', panCardNumber);
+      console.log('🏗️ [SAVE_AND_NEXT] contractorFormMode value:', contractorFormMode);
+      
+      const contractorPayload = ContractorPayloadBuilder.buildContractorPayload({
+        contractorLicenceId,
+        apprefId: draftApplicationId || apprefId || 0,
+        contractorType: contractorType || '',
+        currentWorkingVoltage: currentWorkingVoltage || '',
+        panCardNumber: panCardNumber || '',
+        signeeNameOnBehalfOfCompany,
+        businessEntity,
+        businessEntityAddress,
+        is30DaysCrossed: false, // TODO: Get from application data
+        contractorFormMode,
+        contractorInfo: applicationData // For change detection and Angular parity
+      }, licenseCalculation);
+
+      // Step 6: PRIMARY API CALL ONLY (Angular Parity)
+      // Angular only makes ONE API call in Save & Next flow
+      console.log('🌐 [SAVE_AND_NEXT] ===== MAKING SINGLE API CALL (Angular Parity) =====');
+      console.log('🌐 [SAVE_AND_NEXT] API Controller: ContractorLicence');
+      console.log('🌐 [SAVE_AND_NEXT] API Action: addUpdateContractApplication_GeneralDetails');
+      console.log('🌐 [SAVE_AND_NEXT] Sending payload to backend...');
+      
+      const contractorResponse = await applicationServices.saveContractorApplicationGeneralDetails(contractorPayload);
+
+      if (!contractorResponse.success) {
+        throw new Error(contractorResponse.error || contractorResponse.message || 'Failed to save contractor application');
+      }
+
+      console.log('✅ [SAVE_AND_NEXT] ===== API RESPONSE RECEIVED =====');
+      console.log('✅ [SAVE_AND_NEXT] API Response Status: SUCCESS');
+      console.log('✅ [SAVE_AND_NEXT] Raw response data:', contractorResponse.data);
+
+      // Step 7: Extract contractorLicenceId from response (Angular parity)
+      console.log('✅ [SAVE_AND_NEXT] Extracting contractorLicenceId from response...');
+      console.log('✅ [SAVE_AND_NEXT] Current contractorLicenceId:', contractorLicenceId);
+      console.log('✅ [SAVE_AND_NEXT] Response applicationInitiateResponse:', contractorResponse.data?.applicationInitiateResponse);
+      console.log('✅ [SAVE_AND_NEXT] Response applicationLicenceId:', contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId);
+      
+      const responseContractorLicenceId = contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId === 0 
+        ? contractorLicenceId 
+        : contractorResponse.data?.applicationInitiateResponse?.applicationLicenceId;
+        
+      // ✅ FIX: contractorLicenceId is now managed by the hook, no need to set it manually
+      
+      console.log('✅ [SAVE_AND_NEXT] Updated contractorLicenceId:', responseContractorLicenceId);
+
+      // Step 8: Build encrypted query parameters and navigate (Angular Parity)
+      console.log('🏠 [SAVE_AND_NEXT] ===== PREPARING NAVIGATION QUERY PARAMS =====');
+      console.log('🏠 [SAVE_AND_NEXT] Building query parameters for navigation...');
+      
+      // ✅ FIX: Compute selectedWorkingAreaDistrictsList from workingAreaList (Angular parity)
+      const selectedWorkingAreaDistrictsList = Array.from(
+        new Map(
+          (workingAreaList || []).map(area => [
+            area.districtRefId,
+            {
+              districtRefId: area.districtRefId,
+              districtName: area.districtName
+            }
+          ])
+        ).values()
+      );
+      
+      console.log('🏠 [SAVE_AND_NEXT] Computed selectedWorkingAreaDistrictsList:', selectedWorkingAreaDistrictsList);
+      
+      // Angular exact query parameter structure
+      const queryParams = ContractorPayloadBuilder.buildQueryParams({
+        workingAreaList: workingAreaList || [],
+        contractorFormMode,
+        selectedWorkingAreaDistrictsList,
+        apprefId: draftApplicationId || apprefId || 0,
+        applicationIsLocked: applicationData?.isLocked || false,
+        contractorLicenceId: responseContractorLicenceId || contractorLicenceId || 0,
+        applicationContractorType: contractorType || '', // Angular field name
+        renewAppId: null, // TODO: Handle renewal case
+        is30DaysCrossed: false // TODO: Handle 30-day logic
+      }, encryptionService);
+
+      console.log('🏠 [SAVE_AND_NEXT] Base query params prepared');
+      console.log('🏠 [SAVE_AND_NEXT] Final query params structure:', queryParams);
+      console.log('🏠 [SAVE_AND_NEXT] ===== NAVIGATING TO CONTRACTOR SUPERVISOR =====');
+      console.log('🏠 [SAVE_AND_NEXT] Navigation target: /dashboard/license/contractor-supervisor');
+
+      // Angular exact navigation path
+      const searchParams = new URLSearchParams(queryParams);
+      
+      console.log('✅ [SAVE_AND_NEXT] ===== FUNCTION COMPLETED SUCCESSFULLY =====');
+
+      // Navigate to supervisor page (Angular exact path - no success message, direct navigation)
+      navigate(`/dashboard/license/contractor-supervisor?${searchParams.toString()}`);
+
+    } catch (error: any) {
+      console.error('❌ [SAVE_AND_NEXT] Error occurred:', error);
+      setSaveError(error.message || 'Failed to save application. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * Handle locked application navigation (Angular parity)
+   */
+  const handleLockedApplicationNavigation = () => {
+    console.log('🔒 [SAVE_AND_NEXT] Handling locked application navigation (Angular Parity)');
+    
+    const queryParams = ContractorPayloadBuilder.buildQueryParams({
+      workingAreaList: workingAreaList || [],
+      contractorFormMode,
+      selectedWorkingAreaDistrictsList: [], // Angular compatibility - computed from workingAreaList
+      apprefId: draftApplicationId || apprefId || 0,
+      applicationIsLocked: true,
+      contractorLicenceId: contractorLicenceId || 0,
+      applicationContractorType: contractorType || '', // Angular field name
+      renewAppId: null,
+      is30DaysCrossed: false
+    }, encryptionService);
+
+    const searchParams = new URLSearchParams(queryParams);
+    // Angular exact navigation path
+    navigate(`/dashboard/license/contractor-supervisor?${searchParams.toString()}`);
+  };
+
+  const steps = [
+    { number: 1, icon: "bi-person", title: "Applicant Details", active: true },
+    { number: 2, icon: "bi-check-circle", title: "Step 2", active: false },
+    { number: 3, icon: "bi-file-text", title: "Step 3", active: false },
+    { number: 4, icon: "bi-upload", title: "Step 4", active: false },
+    { number: 5, icon: "bi-list-ul", title: "Step 5", active: false }
+  ];
+
+  // Check if contractor type requires business entity fields
+  const showBusinessEntityFields = contractorType && contractorType !== "Individual";
+  
+  // ✅ ANGULAR PARITY: Partner section visibility logic
+  // ✅ FIX #1: CRITICAL - Contractor Type Logic Exact Angular Parity
+  // Angular: this.showShareHolderForm = ['5', '4', '2'].includes(this.contractorType);
+  // Where: 5=Private Limited, 4=Public Limited, 2=Partnership
+  const showPartnerSection = useMemo(() => {
+    if (!contractorType) return false;
+    
+    console.log('👥 [PARTNER-SECTION] ===== CONTRACTOR TYPE VISIBILITY CHECK =====');
+    console.log('👥 [PARTNER-SECTION] Current contractorType:', contractorType);
+    
+    // ✅ CRITICAL FIX: Map React string values to Angular numeric IDs dynamically
+    // This must match Angular's exact logic: ['5', '4', '2'].includes(this.contractorType)
+    const contractorTypeMapping = {
+      "Proprietorship": "1",      // No partners required
+      "Partnership": "2",         // ✅ Partners required (Angular: '2')
+      "Individual": "3",          // No partners required  
+      "Public Limited": "4",      // ✅ Partners required (Angular: '4')
+      "Private Limited": "5"      // ✅ Partners required (Angular: '5')
+    };
+    
+    const contractorTypeId = contractorTypeMapping[contractorType as keyof typeof contractorTypeMapping];
+    console.log('👥 [PARTNER-SECTION] Mapped contractor type ID:', contractorTypeId);
+    
+    // Angular exact logic: ['5', '4', '2'].includes(this.contractorType)
+    const partnerRequiredTypeIds = ["5", "4", "2"]; // Private Limited, Public Limited, Partnership
+    const shouldShow = partnerRequiredTypeIds.includes(contractorTypeId);
+    
+    console.log('👥 [PARTNER-SECTION] Partner required type IDs:', partnerRequiredTypeIds);
+    console.log('👥 [PARTNER-SECTION] Is contractor type in required list:', shouldShow);
+    
+    // Additional Angular checks: lock page and lifecycle status
+    const isNotLocked = !hideContractorElementsForLockPage;
+    console.log('👥 [PARTNER-SECTION] Is not locked page:', isNotLocked);
+    
+    const finalResult = shouldShow && isNotLocked;
+    console.log('👥 [PARTNER-SECTION] ===== FINAL RESULT =====');
+    console.log('👥 [PARTNER-SECTION] showPartnerSection:', finalResult);
+    
+    if (finalResult) {
+      console.log('✅ [PARTNER-SECTION] Partner/Shareholder Details section will be shown');
+      console.log('✅ [PARTNER-SECTION] User can now add partners/shareholders');
+    } else {
+      console.log('❌ [PARTNER-SECTION] Partner/Shareholder Details section will be hidden');
+      console.log('❌ [PARTNER-SECTION] Reason:', !shouldShow ? 'Contractor type does not require partners' : 'Page is locked');
+    }
+    
+    return finalResult;
+  }, [contractorType, hideContractorElementsForLockPage]);
+
+  // Show initial loading screen while fetching user data
+  if (isInitialLoad || projectSiteLoading) {
+    return (
+      <div className="min-vh-100 bg-light d-flex justify-content-center align-items-center" style={{ paddingTop: '80px' }}>
+        <div className="text-center">
+          <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <h5 className="text-primary mb-2">Loading Applicant Details</h5>
+          <p className="text-muted">Fetching your profile information...</p>
+          <div className="d-flex justify-content-center align-items-center mt-3">
+            <div className="spinner-grow spinner-grow-sm text-primary me-2"></div>
+            <small className="text-muted">Please wait while we load your data</small>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show warning if project site data failed but allow manual entry
+  if (projectSiteError && !applicant_name && !address && !panCardNumber) {
+    return (
+      <div className="alert alert-warning m-4" role="alert">
+        <h6 className="alert-heading">Unable to Load Profile Data</h6>
+        <p className="mb-0">{projectSiteError}</p>
+        <hr />
+        <p className="mb-0">You can still fill the form manually.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="contractor-form-container min-vh-100" style={{ paddingTop: '80px', paddingBottom: '2px', backgroundColor: '#f8f9fa' }}>
+      <Container fluid className="px-0" style={{ maxWidth: '1400px' }}>
+        
+        {/* Header Card */}
+        <Card className="border-0 shadow-sm mb-1 mt-2 mx-auto" style={{ width: '100%' }}>
+          <Card.Body className="p-1">
+            <div className="d-flex align-items-center justify-content-between">
+              <h5 className="mb-0 fw-semibold text-primary text-center w-100">Contractor - Applicant Details</h5>
+            </div>
+          
+            {/* Progress Steps */}
+            <div className="border-0 shadow-sm mb-1 mt-4 mx-auto" style={{ width: '100%' }}>
+              <div className="p-1">
+                <div className="d-flex justify-content-between align-items-center position-relative">
+                  <div className="position-absolute w-100" style={{ height: '1px', backgroundColor: '#000000', top: '50%', zIndex: 1 }}></div>
+                  <div className="position-absolute" style={{ height: '4px', backgroundColor: '#007bff', width: '25%', top: '50%', zIndex: 2, transition: 'width 0.3s ease' }}></div>
+                  
+                  {steps.map((step) => (
+                    <div key={step.number} className="d-flex flex-column align-items-center position-relative" style={{ zIndex: 3 }}>
+                      <div 
+                        className={`rounded-circle d-flex align-items-center justify-content-center ${step.active ? 'bg-primary text-white' : 'bg-light text-muted'}`}
+                        style={{ width: '40px', height: '40px', fontSize: '14px',border: step.active ? 'none' : '1px solid #000000'  }}
+                      >
+                        <i className={step.icon}></i>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Main Form Card */}
+        <Card className="border-4 shadow-xl mx-auto" style={{ width: '100%', marginBottom: '2rem' }}>
+          <Card.Body className="p-4">
+            
+            {/* API Save Status Display */}
+            {(saveSuccess || saveError) && (
+              <div className={`alert ${saveSuccess ? 'alert-success' : 'alert-danger'} d-flex align-items-center mb-4`} role="alert">
+                <i className={`bi ${saveSuccess ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2`}></i>
+                <div className="flex-grow-1">
+                  {saveSuccess || saveError}
+                </div>
+                <Button 
+                  variant="outline-secondary" 
+                  size="sm" 
+                  onClick={() => {
+                    setSaveSuccess(null);
+                    setSaveError(null);
+                  }}
+                >
+                  <i className="bi bi-x"></i>
+                </Button>
+              </div>
+            )}
+
+            
+            
+            
+
+            {/* Location Errors Display */}
+            {(locationErrors.districts || locationErrors.tehsils) && (
+              <div className="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                <div className="flex-grow-1">
+                  <strong>Notice:</strong> {locationErrors.districts || locationErrors.tehsils}
+                </div>
+              </div>
+            )}
+            
+            {/* Applicant Details Section */}
+            <div className="applicant-details-section mb-5 border-3 shadow-xl">
+              <div className="section-header mb-4">
+                <h6 className="text-primary fw-semibold mb-0">
+                  <i className="bi bi-person-circle me-2"></i>
+                  Applicant Details
+                  {loading.districts && (
+                    <Spinner animation="border" size="sm" className="ms-2" />
+                  )}
+                </h6>
+              </div>
+
+              <Row className="g-3">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Name <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={applicant_name}                    // FIXED: Use correct field name
+                      onChange={(e) => setApplicantName(e.target.value)}  // FIXED: Use correct setter
+                      placeholder="Enter applicant name"
+                      className="form-control-custom"
+                      disabled={true}
+                      readOnly={true}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Address <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Enter address"
+                      className="form-control-custom"
+                      disabled={true}
+                      readOnly={true}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      PAN Number <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={panCardNumber}                     // FIXED: Use correct field name
+                      onChange={(e) => setPanCardNumber(e.target.value)}  // FIXED: Use correct setter
+                      placeholder="Enter PAN number"
+                      className="form-control-custom"
+                      disabled={true}
+                      readOnly={true}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row className="g-3 mt-2">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Contractor Type <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={contractorType}
+                      onChange={(e) => handleContractorTypeChange(e.target.value)}
+                      className="form-control-custom"
+                      disabled={areFieldsDisabled}
+                    >
+                      <option value="">-select-</option>
+                      {CONTRACTOR_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Current Working Voltage <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={currentWorkingVoltage}
+                      onChange={(e) => handleCurrentWorkingVoltageChange(e.target.value)}
+                      className="form-control-custom"
+                      disabled={areFieldsDisabled}
+                    >
+                      <option value="">-select-</option>
+                      {VOLTAGE_TYPES.map((voltage) => (
+                        <option key={voltage} value={voltage}>{voltage}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                {/* Show Signee field only if contractor type is not Individual */}
+                {showBusinessEntityFields && (
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Name of the Signee (On Company's behalf) <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={signeeNameOnBehalfOfCompany}
+                        onChange={(e) => setSigneeNameOnBehalfOfCompany(e.target.value)}
+                        placeholder="Name of the Signee (On Company's behalf)"
+                        className="form-control-custom"
+                        disabled={areFieldsDisabled}
+                      />
+                    </Form.Group>
+                  </Col>
+                )}
+              </Row>
+
+              {/* Conditional Business Entity Fields */}
+              {showBusinessEntityFields && (
+                <Row className="g-3 mt-2">
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Business Entity <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={businessEntity}
+                        onChange={(e) => setBusinessEntity(e.target.value)}
+                        placeholder="Business Entity"
+                        className="form-control-custom"
+                        disabled={areFieldsDisabled}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Business Entity Address <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={businessEntityAddress}
+                        onChange={(e) => setBusinessEntityAddress(e.target.value)}
+                        placeholder="Business Entity Address"
+                        className="form-control-custom"
+                        disabled={areFieldsDisabled}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+              )}
+
+              <Row className="g-3 mt-2">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Working On District <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={workingOnDistrict}
+                      onChange={handleWorkingDistrictChange}
+                      className="form-control-custom"
+                      disabled={loading.districts}
+                    >
+                      <option value="">-Select District-</option>
+                      {districts.map((districtItem, idx) => (
+                        <option key={`${districtItem.districtCode}-${idx}`} value={districtItem.districtCode}>
+                          {districtItem.districtName}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <div className="d-flex align-items-center mt-1">
+                      {loading.districts && (
+                        <Spinner animation="border" size="sm" className="me-2" />
+                      )}
+                      <div className="text-danger" style={{ fontSize: '12px' }}>
+                        {workingAreaFormErrors.district || locationErrors.districts}
+                      </div>
+                    </div>
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Working On Tehsil <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={workingOnTehsil}
+                      onChange={handleWorkingTehsilChange}
+                      className="form-control-custom"
+                      disabled={loading.tehsils || !workingOnDistrict}
+                    >
+                      <option value="">-Select Tehsil-</option>
+                      {!loading.tehsils && tehsils.length === 0 && workingOnDistrict && (
+                        <option value="" disabled>
+                          No tehsils found for this district
+                        </option>
+                      )}
+                      {tehsils.map((tehsilItem, idx) => (
+                        <option key={`${tehsilItem.tehsilId}-${idx}`} value={tehsilItem.tehsilId}>
+                          {tehsilItem.tehsilName}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <div className="d-flex align-items-center mt-1">
+                      {loading.tehsils && (
+                        <Spinner animation="border" size="sm" className="me-2" />
+                      )}
+                      <div className="text-danger" style={{ fontSize: '12px' }}>
+                        {workingAreaFormErrors.tehsil || locationErrors.tehsils}
+                      </div>
+                    </div>
+                  </Form.Group>
+                </Col>
+                <Col md={4} className="d-flex align-items-end">
+                  <button 
+                    onClick={addWorkingArea}
+                    disabled={
+                      loading.districts || 
+                      loading.tehsils || 
+                      isAddingWorkingArea ||
+                      !workingOnDistrict || 
+                      !workingOnTehsil
+                    }
+                    className="btn btn-primary"
+                    style={{
+                      fontSize: '12px',
+                      borderRadius: '0px !important',
+                      minWidth: '160px', // Prevent button size changes
+                      position: 'relative'
+                    }}
+                  >
+                    {isAddingWorkingArea ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bx bx-plus" style={{ fontSize: '18px' }}></i> &nbsp; Add Working Area
+                      </>
+                    )}
+                  </button>
+                </Col>
+              </Row>
+
+              
+
+              <div className="mt-4">
+                <DataTable
+                  title="Working Areas"
+                  columns={['S.No.', 'District', 'Tehsil', 'Action']}
+                  rows={workingAreaList.map((area, index) => ({
+                    'S.No.': index + 1,
+                    District: area.district,
+                    Tehsil: area.tehsil,
+                    Action: 'Delete',
+                    id: area.id,
+                    workingAreaData: area // Include full working area object for delete handler
+                  }))}
+                  isMobileView={false}
+                  onActionClick={(row) => handleDeleteWorkingArea(row.workingAreaData)}
+                  actionButton={{
+                    label: 'Delete',
+                    icon: 'bi-trash3',
+                    variant: 'danger'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Partner/Shareholder Details Section - Conditional */}
+            {showPartnerSection && (
+              <div className="partner-details-section mb-5 border-3 shadow-xl">
+                <div className="section-header mb-4">
+                  <h6 className="text-primary fw-semibold mb-0">
+                    <i className="bi bi-people-fill me-2"></i>
+                    Partner/Shareholder Details
+                  </h6>
+                </div>
+
+                <Row className="g-3">
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Partner Name <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={partnerName}
+                        onChange={(e) => setPartnerName(e.target.value)}
+                        placeholder="Enter Partner Name"
+                        className="form-control-custom"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Partner Email <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="email"
+                        value={partnerEmail}
+                        onChange={(e) => setPartnerEmail(e.target.value)}
+                        placeholder="Enter Partner Email"
+                        className="form-control-custom"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Partner Contact Number <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={partnerContactNumber}
+                        onChange={(e) => setPartnerContactNumber(e.target.value)}
+                        placeholder="Enter Partner Contact No"
+                        className="form-control-custom"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row className="g-3 mt-2">
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Upload Partner Photo{" "}
+                        <span className="text-muted">(in 'jpg' format less than 1MB)</span>{" "}
+                        <span className="text-danger">*</span>
+                      </Form.Label>
+                      <FileUpload
+                        name="partnerPhoto"
+                        allowedFileTypes=".jpg,.jpeg"
+                        onFileUploaded={handleFileUploaded}
+                        error=""
+                      />
+                      {partnerPhotoPreviewUrl && (
+                        <div className="mt-2">
+                          <img 
+                            src={partnerPhotoPreviewUrl}
+                            alt="Partner Photo Preview"
+                            style={{ height: '80px', maxWidth: '100%', objectFit: 'cover', border: '1px solid #ddd', borderRadius: '4px' }}
+                          />
+                        </div>
+                      )}
+                      <div className="text-muted small mt-1">
+                        {partnerPhoto || "No file chosen"}
+                      </div>
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        Upload PAN{" "}
+                        <span className="text-muted">(in 'pdf/jpg' format less than 1MB)</span>{" "}
+                        <span className="text-danger">*</span>
+                      </Form.Label>
+                      <FileUpload
+                        name="uploadPan"
+                        allowedFileTypes=".pdf,.jpg,.jpeg,.png"
+                        onFileUploaded={handleFileUploaded}
+                        error=""
+                      />
+                      {uploadPanPreviewUrl && (
+                        <div className="mt-2">
+                          {uploadPan.toLowerCase().includes('.pdf') ? (
+                            <div className="d-flex align-items-center">
+                              <i className="bi bi-file-earmark-pdf text-danger me-2" style={{ fontSize: '24px' }}></i>
+                              <span className="small text-muted">PDF file uploaded</span>
+                            </div>
+                          ) : (
+                            <img 
+                              src={uploadPanPreviewUrl}
+                              alt="PAN Document Preview"
+                              style={{ height: '80px', maxWidth: '100%', objectFit: 'cover', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                          )}
+                        </div>
+                      )}
+                      <div className="text-muted small mt-1">
+                        {uploadPan || "No file chosen"}
+                      </div>
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-medium small">
+                        PAN No <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={panNo}
+                        onChange={(e) => setPanNo(e.target.value)}
+                        placeholder="Enter PAN No"
+                        className="form-control-custom"
+                        maxLength={10}
+                        style={{ textTransform: 'uppercase' }}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row className="g-3 mt-3">
+                  <Col className="d-flex justify-content-end">
+                    <Button
+                      variant="primary"
+                      onClick={handleAddPartner}
+                      className="btn-custom"
+                      disabled={!partnerName || !partnerEmail || !partnerContactNumber || !panNo || !partnerPhoto || !uploadPan}
+                    >
+                      <i className="bi bi-plus-circle me-2"></i>
+                      Add Partner
+                    </Button>
+                  </Col>
+                </Row>
+
+                {/* Partners Table */}
+                <div className="mt-4">
+                  <DataTable
+                    title="Partners"
+                    columns={[
+                      'S.No.',
+                      'Name',
+                      'Email',
+                      'Mobile Number',
+                      'Photo',
+                      'PAN',
+                      'PAN No',
+                      'Action'
+                    ]}
+                    rows={partners.map((partner, index) => {
+                      const photoUrl = partner.photo ? `${import.meta.env.VITE_UPLOAD_URL}Uploads/Documents/TempFiles/${partner.photo.trim()}` : '';
+                      const panUrl = partner.pan ? `${import.meta.env.VITE_UPLOAD_URL}Uploads/Documents/TempFiles/${partner.pan.trim()}` : '';
+                      
+                      return {
+                        'S.No.': index + 1,
+                        'Name': partner.name,
+                        'Email': partner.email,
+                        'Mobile Number': partner.mobileNumber,
+                        'Photo': photoUrl ? (
+                          <img 
+                            src={photoUrl}
+                            alt="Partner Photo"
+                            style={{ height: '40px', width: '40px', objectFit: 'cover', border: '1px solid #ddd', borderRadius: '4px' }}
+                          />
+                        ) : 'No photo',
+                        'PAN': panUrl ? (
+                          partner.pan.toLowerCase().includes('.pdf') ? (
+                            <div className="d-flex align-items-center justify-content-center">
+                              <i className="bi bi-file-earmark-pdf text-danger" style={{ fontSize: '20px' }}></i>
+                            </div>
+                          ) : (
+                            <img 
+                              src={panUrl}
+                              alt="PAN Document"
+                              style={{ height: '40px', width: '40px', objectFit: 'cover', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                          )
+                        ) : 'No document',
+                        'PAN No': partner.panNo,
+                        Action: 'Delete',
+                        id: partner.id
+                      };
+                    })}
+                    isMobileView={false}
+                    onActionClick={(row) => handleDeletePartner(row.id)}
+                    actionButton={{
+                      label: 'Delete',
+                      icon: 'bi-trash3',
+                      variant: 'danger'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Instrument Details Section */}
+            <div className="instrument-details-section mt-6 mb-4 border-3 shadow-xl">
+              <div className="section-header mb-4">
+                <h6 className="text-primary fw-semibold mb-0">
+                  <i className="bi bi-tools me-2"></i>
+                  Instrument Details
+                </h6>
+              </div>
+
+              <Row className="g-3">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Instrument <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={instrument}
+                      onChange={(e) => setInstrument(e.target.value)}
+                      className="form-control-custom"
+                      disabled={selectedInstrumentList.length === 0}
+                      style={{ 
+                        backgroundColor: selectedInstrumentList.length === 0 ? '#f8f9fa' : '',
+                        cursor: selectedInstrumentList.length === 0 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <option value="">
+                        {selectedInstrumentList.length === 0 ? 
+                          "Please select Current Working Voltage first" : 
+                          "--select--"
+                        }
+                      </option>
+                      {selectedInstrumentList.map((instrumentItem, idx) => (
+                        <option key={`${instrumentItem.value}-${idx}`} value={instrumentItem.name}>
+                          {instrumentItem.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    {selectedInstrumentList.length === 0 && (
+                      <div className="text-muted small mt-1">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Select "Current Working Voltage" to enable instrument selection
+                      </div>
+                    )}
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Instrument Serial No <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={instrumentSerialNo}
+                      onChange={(e) => handleInstrumentSerialNoChange(e.target.value)}
+                      onBlur={(e) => handleInstrumentSerialNoBlur(e.target.value)}
+                      placeholder=""
+                      className="form-control-custom"
+                    />
+
+                    {/* Validation Error Display (Angular parity) */}
+                    {instrumentFormErrors.serialNo && (
+                      <div className="text-danger small mt-1">
+                        <i className="bi bi-exclamation-circle me-1"></i>
+                        {instrumentFormErrors.serialNo}
+                      </div>
+                    )}
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Instrument Make <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={instrumentMake}
+                      onChange={(e) => handleInstrumentMakeChange(e.target.value)}
+                      placeholder=""
+                      className="form-control-custom"
+                    />
+
+                    {/* Validation Error Display (Angular parity) */}
+                    {instrumentFormErrors.make && (
+                      <div className="text-danger small mt-1">
+                        <i className="bi bi-exclamation-circle me-1"></i>
+                        {instrumentFormErrors.make}
+                      </div>
+                    )}
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row className="g-3 mt-2">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Instrument Range (from) <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={instrumentRangeFrom}
+                      onChange={(e) => setInstrumentRangeFrom(e.target.value)}
+                      placeholder=""
+                      className="form-control-custom"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Instrument Range (To) <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={instrumentRangeTo}
+                      onChange={(e) => setInstrumentRangeTo(e.target.value)}
+                      placeholder=""
+                      className="form-control-custom"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      Instrument Range (Unit) <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={instrumentRangeUnit}
+                      onChange={(e) => setInstrumentRangeUnit(e.target.value)}
+                      className="form-control-custom"
+                    >
+                      <option value="">--select--</option>
+                      {RANGE_UNITS.map((unit) => (
+                        <option key={unit.id} value={unit.value}>{unit.label}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row className="g-3 mt-2">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium small">
+                      District <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={instrumentDistrict}                 // FIXED: Use instrumentDistrict
+                      onChange={handleInstrumentDistrictChange}
+                      className="form-control-custom"
+                      disabled={loading.districts}
+                    >
+                      <option value="">-Select District-</option>
+                      {/* CRITICAL: Filter districts by working areas (Angular parity) */}
+                      {districts
+                        .filter(districtItem => {
+                          // Only show districts that are in contractor's working areas
+                          const hasMatch = workingAreaList.some(workingArea => 
+                            workingArea.districtRefId === districtItem.districtCode
+                          );
+                          console.log(`🎯 [DISTRICT-FILTER] ${districtItem.districtName}: ${hasMatch ? 'INCLUDED' : 'EXCLUDED'}`);
+                          return hasMatch;
+                        })
+                        .map((districtItem, idx) => (
+                          <option key={`${districtItem.districtCode}-${idx}`} value={districtItem.districtCode}>
+                            {districtItem.districtName}
+                          </option>
+                        ))}
+                    </Form.Select>
+                    <div className="d-flex align-items-center mt-1">
+                      {loading.districts && (
+                        <Spinner animation="border" size="sm" className="me-2" />
+                      )}
+                      <div className="text-danger" style={{ fontSize: '12px' }}>
+                        {locationErrors.districts}
+                      </div>
+                    </div>
+
+                  </Form.Group>
+                </Col>
+
+                <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="fw-medium small">
+                    Tehsil <span className="text-danger">*</span>
+                  </Form.Label>
+                  <Form.Select
+                    value={instrumentTehsil}                    // FIXED: Use instrumentTehsil
+                    onChange={handleInstrumentTehsilChange}     // FIXED: Use proper handler
+                    className="form-control-custom"
+                    disabled={loading.tehsils || !instrumentDistrict}  // FIXED: Use instrumentDistrict
+                  >
+                    <option value="">-Select Tehsil-</option>
+                    {!loading.tehsils && tehsils.length === 0 && instrumentDistrict && (
+                      <option value="" disabled>
+                        No tehsils found for this district
+                      </option>
+                    )}
+                    {/* CRITICAL: Filter tehsils by working areas (Angular parity) */}
+                    {tehsils
+                      .filter(tehsilItem => {
+                        // Only show tehsils that are in contractor's working areas for the selected district
+                        return workingAreaList.some(workingArea => 
+                          workingArea.districtRefId === Number(instrumentDistrict) &&
+                          workingArea.tehsilRefId === tehsilItem.tehsilId
+                        );
+                      })
+                      .map((tehsilItem, idx) => (
+                        <option key={`${tehsilItem.tehsilId}-${idx}`} value={tehsilItem.tehsilId}>
+                          {tehsilItem.tehsilName}
+                        </option>
+                      ))}
+                  </Form.Select>
+                  <div className="d-flex align-items-center mt-1">
+                    {loading.tehsils && (
+                      <Spinner animation="border" size="sm" className="me-2" />
+                    )}
+                    <div className="text-danger" style={{ fontSize: '12px' }}>
+                      {locationErrors.tehsils}
+                    </div>
+                  </div>
+                </Form.Group>
+              </Col>
+
+              <Col md={4} className="d-flex align-items-end">
+                <Button
+                  variant="primary"
+                  onClick={handleAddInstrumentDetails}
+                  className="btn-custom w-100"
+                  style={{ height: '38px' }}
+                  disabled={isAddingInstrument}
+                >
+                  <i className="bi bi-plus-circle me-2"></i>
+                  {isAddingInstrument ? 'Adding...' : 'Add Instrument'}
+                </Button>
+              </Col>
+              </Row>
+
+              {/* Instruments Table */}
+              <div className="mt-4">
+                <DataTable
+                  title="Instruments"
+                  columns={[
+                    'S.No.',
+                    'Instrument Type',
+                    'Instrument Serial No',
+                    'Instrument Make',
+                    'Instrument Range',
+                    'District',
+                    'Tehsil',
+                    'Action'
+                  ]}
+                  rows={instruments.map((instrument, index) => ({
+                    'S.No.': index + 1,
+                    'Instrument Type': instrument.instrumentType,
+                    'Instrument Serial No': instrument.instrumentSerialNo,
+                    'Instrument Make': instrument.instrumentMake,
+                    'Instrument Range': instrument.instrumentRange,
+                    'District': instrument.district,
+                    'Tehsil': instrument.tehsil,
+                    Action: 'Delete',
+                    id: instrument.id
+                  }))}
+                  isMobileView={false}
+                  onActionClick={(row) => handleDeleteInstrument(row.id)}
+                  actionButton={{
+                    label: 'Delete',
+                    icon: 'bi-trash3',
+                    variant: 'danger'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="d-flex justify-content-between mt-4">
+              <Button 
+                variant="outline-secondary" 
+                onClick={handleBack}
+                className="btn-outline-custom"
+              >
+                <i className="bi bi-arrow-left me-2"></i>
+                Back
+              </Button>
+              <Button 
+                variant="primary" 
+                onClick={handleSaveAndNext}
+                className="btn-custom"
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Spinner
+                      as="span"
+                      animation="border"
+                      size="sm"
+                      role="status"
+                      aria-hidden="true"
+                      className="me-2"
+                    />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    {applicationData?.isLocked ? 'Application Locked' : 'Save & Next'}
+                    <i className={`bi ${applicationData?.isLocked ? 'bi-lock' : 'bi-arrow-right'} ms-2`}></i>
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card.Body>
+        </Card>
+      </Container>
+
+      {/* Enhanced styles with API notification support */}
+      <style>{`
+        /* Apply global font family */
+        * {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+
+        .contractor-form-container {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          min-height: 100vh;
+          position: relative;
+        }
+
+        .contractor-form-container::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.03);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Card Enhancements */
+        .card {
+          background: rgba(255, 255, 255, 0.88);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+          border-radius: 12px;
+          transition: all 0.3s ease;
+          position: relative;
+          z-index: 1;
+        }
+
+        .card:hover {
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+        }
+
+        /* Section Headers */
+        .section-header {
+          border-bottom: 2px solid #e9ecef;
+          padding-bottom: 8px;
+        }
+
+        .section-header h6 {
+          color: #007bff;
+          font-size: 1.1rem;
+        }
+
+        /* Form Sections */
+        .applicant-details-section,
+        .instrument-details-section,
+        .partner-details-section {
+          border: 2px solid #e9ecef;
+          border-radius: 8px;
+          padding: 20px;
+          background: rgba(248, 249, 250, 0.4);
+          position: relative;
+        }
+
+        .applicant-details-section::before,
+        .instrument-details-section::before,
+        .partner-details-section::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(255, 255, 255, 0.6);
+          border-radius: 6px;
+          z-index: -1;
+        }
+
+        /* Form Controls */
+        .form-control-custom,
+        .form-select {
+          border: 2px solid #dee2e6 !important;
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          background: rgba(255, 255, 255, 0.8);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-control-custom:focus,
+        .form-select:focus {
+          border-color: #007bff !important;
+          box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+          outline: none;
+        }
+
+        /* Disabled state styling */
+        .form-control-custom:disabled,
+        .form-select:disabled {
+          background-color: #f8f9fa !important;
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        /* Labels */
+        .form-label {
+          color: #495057;
+          font-weight: 600;
+          margin-bottom: 6px;
+          font-size: 13px;
+        }
+
+        /* Success indicators for auto-filled fields */
+        .text-success {
+          color: #198754 !important;
+        }
+
+        /* Alert styling */
+        .alert {
+          border-radius: 8px;
+          border: none;
+          backdrop-filter: blur(5px);
+        }
+
+        .alert-success {
+          background: rgba(212, 237, 218, 0.9);
+          border-color: #d1e7dd;
+          color: #0a3622;
+        }
+
+        .alert-danger {
+          background: rgba(248, 215, 218, 0.9);
+          border-color: #f1aeb5;
+          color: #58151c;
+        }
+
+        .alert-warning {
+          background: rgba(255, 243, 205, 0.8);
+        }
+
+        /* Buttons */
+        .btn-custom {
+          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+          border: none;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          padding: 8px 16px;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn-custom:hover {
+          background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+        }
+
+        .btn-custom:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        /* Loading button styling */
+        .btn-custom .spinner-border {
+          width: 1rem;
+          height: 1rem;
+          border-width: 0.15em;
+        }
+
+        .btn-outline-custom {
+          border: 2px solid #6c757d;
+          color: #6c757d;
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          padding: 8px 16px;
+          transition: all 0.3s ease;
+        }
+
+        .btn-outline-custom:hover {
+          background: #6c757d;
+          color: white;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+        /* Tables */
+        .data-table {
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(5px);
+        }
+
+        .data-table th {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border: none;
+          font-weight: 600;
+          color: #495057;
+          font-size: 12px;
+          padding: 12px 8px;
+          text-align: center;
+        }
+
+        .data-table td {
+          border: none;
+          font-size: 12px;
+          padding: 10px 8px;
+          text-align: center;
+          vertical-align: middle;
+          border-bottom: 1px solid #f1f3f4;
+        }
+
+        .data-table tbody tr:hover {
+          background: rgba(0, 123, 255, 0.05);
+        }
+
+        /* Disabled instrument dropdown styling */
+        .form-control-custom:disabled {
+          background-color: #f8f9fa !important;
+          opacity: 0.7;
+          cursor: not-allowed;
+          border-color: #e9ecef !important;
+        }
+
+        /* Info message styling */
+        .text-muted {
+          color: #6c757d !important;
+          font-size: 0.875rem;
+        }
+
+        .text-muted .bi {
+          font-size: 0.875rem;
+        }
+
+        /* Highlight enabled state */
+        .form-control-custom:not(:disabled):focus {
+          border-color: #007bff !important;
+          box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        /* Progress Steps */
+        .bg-primary {
+          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .contractor-form-container {
+            padding-top: 60px !important;
+          }
+
+          .card {
+            margin: 8px !important;
+            width: calc(100% - 16px) !important;
+          }
+
+          .form-control-custom,
+          .form-select {
+            font-size: 12px;
+            padding: 6px 10px;
+            border: 2px solid #ced4da !important;
+          }
+
+          .btn-custom,
+          .btn-outline-custom {
+            font-size: 12px;
+            padding: 6px 12px;
+          }
+
+          .data-table th,
+          .data-table td {
+            font-size: 10px;
+            padding: 6px 4px;
+          }
+
+          .applicant-details-section,
+          .instrument-details-section,
+          .partner-details-section {
+            padding: 15px;
+            border-width: 2px;
+          }
+        }
+
+        @media (max-width: 576px) {
+          .section-header h6 {
+            font-size: 1rem;
+          }
+
+          .form-label {
+            font-size: 12px;
+          }
+        }
+
+        /* Accessibility */
+        @media (prefers-reduced-motion: reduce) {
+          .card,
+          .btn-custom,
+          .btn-outline-custom,
+          .form-control-custom {
+            transition: none;
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default ContractorApplicantDetails;

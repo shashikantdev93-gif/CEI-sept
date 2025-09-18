@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { userDetailsService } from '../services/api/userDetailsService';
+import { applicationServices } from '../services/api/applicationServices';
 import { ToastService } from '../utils/navigation';
 import { ApplicationPayloadBuilder } from '../utils/applicationUtils';
 import type { ContractorFormMode, ApplicationState } from '../types/contractor.types';
@@ -97,7 +97,7 @@ export const useContractorApplication = (): UseContractorApplicationReturn => {
         applicationState
       );
 
-      const response = await userDetailsService.createApplicationDetails(applicationPayload);
+      const response = await applicationServices.createApplicationDetails(applicationPayload);
 
       if (response.success && response.data) {
         console.log('📥 [USE-CONTRACTOR-APP] Full response structure:', response);
@@ -137,7 +137,7 @@ export const useContractorApplication = (): UseContractorApplicationReturn => {
               newApplicationState
             );
             
-            await userDetailsService.createApplicationAction(applicationActionPayload);
+            await applicationServices.createApplicationAction(applicationActionPayload);
             console.log('✅ [USE-CONTRACTOR-APP] ApplicationAction created successfully');
           } catch (actionError) {
             console.error('❌ [USE-CONTRACTOR-APP] ApplicationAction failed:', actionError);

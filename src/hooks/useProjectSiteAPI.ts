@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { axiosInterceptor } from '../lib/interceptor';
 import { ToastService } from '../utils';
 import encryptionService from '../lib/encryptionService';
-import { userDetailsService } from '../services/api/userDetailsService';
-import type { ContractorApplicationPayload, SavedContractorData } from '../services/api/userDetailsService';
+import { applicationServices } from '../services/api/applicationServices';
+import type { ContractorApplicationPayload, SavedContractorData } from '../services/api/applicationServices';
 
 interface ProjectSiteData {
   projectSiteId?: number;
@@ -231,7 +231,7 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
       
       console.log(`🔄 [${pageType.toUpperCase()} API]: Saving contractor application...`);
       
-      const response = await userDetailsService.saveContractorApplication(payload);
+      const response = await applicationServices.saveContractorApplication(payload);
       
       if (response.success && response.data) {
         console.log(`✅ [${pageType.toUpperCase()} API]: Contractor application saved successfully`);
@@ -244,7 +244,7 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
         
         return { success: true, data: response.data };
       } else {
-        throw new Error(response.data?.error || 'Failed to save contractor application');
+        throw new Error(response.message || 'Failed to save contractor application');
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to save contractor application';
@@ -271,7 +271,7 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
       
       console.log(`🔄 [${pageType.toUpperCase()} API]: Loading contractor application for ID:`, id);
       
-      const response = await userDetailsService.getContractorApplication(id);
+      const response = await applicationServices.getContractorApplication(id);
       
       if (response.success && response.data) {
         console.log(`✅ [${pageType.toUpperCase()} API]: Contractor application loaded successfully`);

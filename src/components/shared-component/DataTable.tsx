@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Table, Button, ButtonGroup, Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Card, Table, Button, Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 interface ActionButton {
   label: string;

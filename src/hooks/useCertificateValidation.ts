@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { userDetailsService } from '../services/api/userDetailsService';
+import { applicationServices } from '../services/api/applicationServices';
 
 interface CertificateValidationResult {
   isValid: boolean;
@@ -57,7 +57,7 @@ export const useCertificateValidation = () => {
       if (contractorFormMode === 'new') {
         // NEW CASE: Check if certificate already exists in backlog
         console.log('🔍 [CERTIFICATE-VALIDATION] Checking supervisor backlog for new application');
-        const backlogResponse = await userDetailsService.getSuperBacklogDetailsByLicenceNo(licenceNo);
+        const backlogResponse = await applicationServices.getSuperBacklogDetailsByLicenceNo(licenceNo);
         
         if (backlogResponse?.data?.formModel?.length > 0) {
           return {
@@ -70,7 +70,7 @@ export const useCertificateValidation = () => {
         // If online mode, fetch details from supervisor licence API
         if (isOnlineMode) {
           console.log('🌐 [CERTIFICATE-VALIDATION] Fetching supervisor details for online mode');
-          const detailsResponse = await userDetailsService.getSupervisorDetails_ByLicenceNo(licenceNo);
+          const detailsResponse = await applicationServices.getSupervisorDetails_ByLicenceNo(licenceNo);
           
           if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
             const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
@@ -102,7 +102,7 @@ export const useCertificateValidation = () => {
       } else {
         // RENEW CASE: Match Angular logic exactly
         console.log('🔄 [CERTIFICATE-VALIDATION] Checking supervisor for renewal, renewAppId:', renewAppId);
-        const backlogResponse = await userDetailsService.getSuperBacklogDetailsByLicenceNo(licenceNo);
+        const backlogResponse = await applicationServices.getSuperBacklogDetailsByLicenceNo(licenceNo);
         
         if (backlogResponse?.data?.formModel?.length > 0) {
           // Find the record with largest ID (Angular logic)
@@ -119,7 +119,7 @@ export const useCertificateValidation = () => {
             if (isExpired) {
               // Check online source if available
               if (isOnlineMode) {
-                const detailsResponse = await userDetailsService.getSupervisorDetails_ByLicenceNo(licenceNo);
+                const detailsResponse = await applicationServices.getSupervisorDetails_ByLicenceNo(licenceNo);
                 
                 if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
                   const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
@@ -169,7 +169,7 @@ export const useCertificateValidation = () => {
         } else {
           // No backlog data, check online if available
           if (isOnlineMode) {
-            const detailsResponse = await userDetailsService.getSupervisorDetails_ByLicenceNo(licenceNo);
+            const detailsResponse = await applicationServices.getSupervisorDetails_ByLicenceNo(licenceNo);
             
             if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
               const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
@@ -231,7 +231,7 @@ export const useCertificateValidation = () => {
       if (contractorFormMode === 'new') {
         // NEW CASE: Check if permit already exists in backlog
         console.log('🔍 [CERTIFICATE-VALIDATION] Checking wireman backlog for new application');
-        const backlogResponse = await userDetailsService.getWireBacklogDetailsByLicenceNo(licenceNo);
+        const backlogResponse = await applicationServices.getWireBacklogDetailsByLicenceNo(licenceNo);
         
         if (backlogResponse?.data?.formModel?.length > 0) {
           return {
@@ -244,7 +244,7 @@ export const useCertificateValidation = () => {
         // If online mode, fetch details from wireman licence API
         if (isOnlineMode) {
           console.log('🌐 [CERTIFICATE-VALIDATION] Fetching wireman details for online mode');
-          const detailsResponse = await userDetailsService.getWiremanDetails_ByLicenceNo(licenceNo);
+          const detailsResponse = await applicationServices.getWiremanDetails_ByLicenceNo(licenceNo);
           
           if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
             const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
@@ -276,7 +276,7 @@ export const useCertificateValidation = () => {
       } else {
         // RENEW CASE: Match Angular logic exactly
         console.log('🔄 [CERTIFICATE-VALIDATION] Checking wireman for renewal, renewAppId:', renewAppId);
-        const backlogResponse = await userDetailsService.getWireBacklogDetailsByLicenceNo(licenceNo);
+        const backlogResponse = await applicationServices.getWireBacklogDetailsByLicenceNo(licenceNo);
         
         if (backlogResponse?.data?.formModel?.length > 0) {
           // Find the record with largest ID (Angular logic)
@@ -293,7 +293,7 @@ export const useCertificateValidation = () => {
             if (isExpired) {
               // Check online source if available
               if (isOnlineMode) {
-                const detailsResponse = await userDetailsService.getWiremanDetails_ByLicenceNo(licenceNo);
+                const detailsResponse = await applicationServices.getWiremanDetails_ByLicenceNo(licenceNo);
                 
                 if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
                   const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];
@@ -343,7 +343,7 @@ export const useCertificateValidation = () => {
         } else {
           // No backlog data, check online if available
           if (isOnlineMode) {
-            const detailsResponse = await userDetailsService.getWiremanDetails_ByLicenceNo(licenceNo);
+            const detailsResponse = await applicationServices.getWiremanDetails_ByLicenceNo(licenceNo);
             
             if (detailsResponse?.data?.formModel && detailsResponse.data.formModel.length > 0) {
               const latestRecord = detailsResponse.data.formModel[detailsResponse.data.formModel.length - 1];

@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
 import FormField from '../../components/shared-component/FormField';
 import DataTable from '../../components/shared-component/DataTable';
 import LoadingButton from '../../components/shared-component/LoadingButton';
 import FileUpload from '../../components/FileUpload';
-import { useContractorForm } from '../../hooks/useContractorForm';
-import { useSupervisorValidation } from '../../hooks/useSupervisorValidation';
-import { useSupervisorData } from '../../hooks/useSupervisorData';
-import { useSupervisorPageData } from '../../hooks/contractor/useSupervisorPageData';
+import { useSupervisorBusinessLogic } from '../../modules/supervisor/hooks/useSupervisorBusinessLogicSimple';
 import encryptionService from '../../lib/encryptionService';
-import { userDetailsService } from '../../services/api/userDetailsService';
+import { applicationServices } from '../../services/api/applicationServices';
 import { ContractorPayloadBuilder } from '../../services/contractorPayloadBuilder';
 import SweetAlert from 'sweetalert2';
 import { 
@@ -23,111 +20,27 @@ import { EMPTY_SUPERVISOR_FORM, EMPTY_WIREMAN_FORM } from '../../constants/super
 
 const ContractorSupervisor: React.FC = () => {
   const navigate = useNavigate();
-  const location = useRouterLocation();
   
   // Refs for input focus (Angular parity)
   const supervisorCertificateRef = useRef<HTMLInputElement>(null);
   const wiremanPermitRef = useRef<HTMLInputElement>(null);
   
-  // ✅ 1. QUERY PARAMETERS & CONTEXT - Using uniform React patterns
-  const [applicationContext, setApplicationContext] = useState<{
-    workingAreaList: any[];
-    contractorFormMode: string;
-    selectedWorkingAreaDistrictsList: any[];
-    appRefId: number;
-    contractorLicenceId: number;
-    applicationContractorType: string;
-    applicationIsLocked: boolean;
-    renewAppId?: number;
-    is30DaysCrossed?: boolean;
-  } | null>(null);
-  
-  // Processing states
-  const [existingSupervisorsFromAPI, setExistingSupervisorsFromAPI] = useState<any[]>([]);
-  const [existingWiremansFromAPI, setExistingWiremansFromAPI] = useState<any[]>([]);
-  
-  // ✅ Query Parameter Processing (Angular Constructor Equivalent)
-  useEffect(() => {
-    console.log('🔄 [SUPERVISOR-INIT] ===== PROCESSING QUERY PARAMETERS =====');
-    const urlParams = new URLSearchParams(location.search);
-    
-    try {
-      // Decrypt and parse all query parameters (Angular parity)
-      const encryptedWorkingAreaList = urlParams.get('workingAreaList');
-      const encryptedFormMode = urlParams.get('formMode');
-      const encryptedSelectedDistricts = urlParams.get('selectedWorkingAreaDistrictsList');
-      const encryptedAppRefId = urlParams.get('appRefId');
-      const encryptedContractorLicenceId = urlParams.get('contractorLicenceId');
-      const encryptedApplicationContractorType = urlParams.get('applicationContractorType');
-      const encryptedApplicationIsLocked = urlParams.get('applicationIsLocked');
-      const encryptedRenewAppId = urlParams.get('renewAppId');
-      const encryptedIs30DaysCrossed = urlParams.get('is30DaysCrossed');
-      
-      if (!encryptedWorkingAreaList || !encryptedFormMode || !encryptedAppRefId) {
-        console.error('❌ [SUPERVISOR-INIT] Missing required encrypted parameters');
-        SweetAlert.fire({
-          title: 'Invalid Navigation',
-          text: 'Missing required application data. Redirecting to contractor info.',
-          icon: 'error'
-        }).then(() => {
-          navigate('/dashboard/license/contractor-info');
-        });
-        return;
-      }
-      
-      // Decrypt parameters with null safety
-      const workingAreaList = JSON.parse(encryptionService.get(encryptedWorkingAreaList));
-      const contractorFormMode = encryptionService.get(encryptedFormMode);
-      const selectedWorkingAreaDistrictsList = encryptedSelectedDistricts ? JSON.parse(encryptionService.get(encryptedSelectedDistricts)) : [];
-      const appRefId = parseInt(encryptionService.get(encryptedAppRefId));
-      const contractorLicenceId = encryptedContractorLicenceId ? parseInt(encryptionService.get(encryptedContractorLicenceId)) : 0;
-      const applicationContractorType = encryptedApplicationContractorType ? encryptionService.get(encryptedApplicationContractorType) : '';
-      const applicationIsLocked = encryptedApplicationIsLocked ? JSON.parse(encryptionService.get(encryptedApplicationIsLocked)) : false;
-      const renewAppId = encryptedRenewAppId ? parseInt(encryptionService.get(encryptedRenewAppId)) : undefined;
-      const is30DaysCrossed = encryptedIs30DaysCrossed ? JSON.parse(encryptionService.get(encryptedIs30DaysCrossed)) : undefined;
-      
-      // Validation: Form mode must be 'new' or 'renew' (Angular validation)
-      if (!contractorFormMode || !['new', 'renew'].includes(contractorFormMode)) {
-        console.error('❌ [SUPERVISOR-INIT] Invalid contractorFormMode:', contractorFormMode);
-        SweetAlert.fire({
-          title: 'Invalid Application Mode',
-          text: 'Invalid contractor form mode. Redirecting to contractor info.',
-          icon: 'error'
-        }).then(() => {
-          navigate('/dashboard/license/contractor-info');
-        });
-        return;
-      }
-      
-      // Set application context
-      setApplicationContext({
-        workingAreaList,
-        contractorFormMode,
-        selectedWorkingAreaDistrictsList,
-        appRefId,
-        contractorLicenceId,
-        applicationContractorType,
-        applicationIsLocked,
-        renewAppId,
-        is30DaysCrossed
-      });
-      
-      console.log('✅ [SUPERVISOR-INIT] Application context set successfully');
-      
-    } catch (error) {
-      console.error('❌ [SUPERVISOR-INIT] Error processing query parameters:', error);
-      SweetAlert.fire({
-        title: 'Parameter Processing Error',
-        text: 'Failed to process application data. Redirecting to contractor info.',
-        icon: 'error'
-      }).then(() => {
-        navigate('/dashboard/license/contractor-info');
-      });
-    }
-  }, [location.search, navigate]);
-  
-  // ✅ 2. FORM SETUP & VALIDATION - Using custom hook useSupervisorValidation
+  // ✅ PHASE 2: Business Logic Hook - Consolidates all supervisor logic
   const {
+    // Application Context
+    applicationContext,
+    existingSupervisorsFromAPI,
+    setExistingSupervisorsFromAPI,
+    existingWiremansFromAPI, 
+    setExistingWiremansFromAPI,
+    
+    // Offline/Online toggle
+    isSupervisorOffline, 
+    setIsSupervisorOffline,
+    isWiremanOffline, 
+    setIsWiremanOffline,
+    
+    // Form validation (from useSupervisorValidation)
     supervisorForm,
     wiremanForm,
     supervisorErrors,
@@ -144,19 +57,15 @@ const ContractorSupervisor: React.FC = () => {
     isValidatingWireman,
     clearSupervisorOnlineErrors,
     clearWiremanOnlineErrors,
-    validateField
-  } = useSupervisorValidation();
+    validateField,
 
-  // Data management hooks
-  const {
+    // Data management (from useSupervisorData)
     isAddingSupervisor,
     isAddingWireman,
     setIsAddingSupervisor,
-    setIsAddingWireman
-  } = useSupervisorData();
+    setIsAddingWireman,
 
-  // Page-level data management
-  const {
+    // Page data (from useSupervisorPageData) 
     totalSupervisors,
     totalWiremans,
     maxSupervisors,
@@ -165,14 +74,12 @@ const ContractorSupervisor: React.FC = () => {
     hasExpiredSupervisors,
     hasExpiredWiremans,
     refreshData,
-    checkExpiryStatus
-  } = useSupervisorPageData();
+    checkExpiryStatus,
 
-  // Application workflow integration
-  const { 
-    apprefId, 
+    // Application workflow (from useContractorForm)
+    apprefId,
     ensureApplicationExists
-  } = useContractorForm();
+  } = useSupervisorBusinessLogic();
 
   // Use API data exclusively - Remove static data fallback
   const supervisorsList = existingSupervisorsFromAPI;
@@ -184,11 +91,7 @@ const ContractorSupervisor: React.FC = () => {
   console.log('🏗️ [DISTRICT-DATA] Available districts:', applicationContext?.selectedWorkingAreaDistrictsList);
   console.log('🏗️ [WORKING-AREA-DATA] Working area list:', applicationContext?.workingAreaList);
 
-  // ✅ 3. OFFLINE/ONLINE TOGGLE - Following existing mode-switch pattern
-  const [isSupervisorOffline, setIsSupervisorOffline] = useState(true);
-  const [isWiremanOffline, setIsWiremanOffline] = useState(true);
-  
-  // Loading and error states
+  // Loading and error states (not yet moved to business logic hook)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   
@@ -201,7 +104,7 @@ const ContractorSupervisor: React.FC = () => {
       console.log('📊 [SUPERVISOR-DATA] AppRefId:', applicationContext.appRefId);
       
       try {
-        const response = await userDetailsService.getContractorWorkerDetails(applicationContext.appRefId);
+        const response = await applicationServices.getContractorWorkerDetails(applicationContext.appRefId);
         
         if (response.success && response.data?.formModel?.[0]) {
           const data = response.data.formModel[0];
@@ -419,7 +322,7 @@ const ContractorSupervisor: React.FC = () => {
       console.log('📤 [SUPERVISOR] Sending payload:', supervisorPayload);
       
       // Step 5: Call API (Angular parity)
-      const response = await userDetailsService.addUpdateContractSupervisor(supervisorPayload);
+      const response = await applicationServices.addUpdateContractSupervisor(supervisorPayload);
       
       if (response.success) {
         console.log('✅ [SUPERVISOR] Successfully added supervisor');
@@ -427,7 +330,7 @@ const ContractorSupervisor: React.FC = () => {
         // Step 6: Refresh data (Angular calls getContractorWorkerDetails)
         // Reload existing data to reflect the new addition
         try {
-          const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+          const refreshResponse = await applicationServices.getContractorWorkerDetails(currentApprefId);
           if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
             const data = refreshResponse.data.formModel[0];
             const existingSupervisors = data.supervisorLicence_Backlog || [];
@@ -543,14 +446,14 @@ const ContractorSupervisor: React.FC = () => {
       console.log('📤 [WIREMAN] Sending payload:', wiremanPayload);
       
       // Step 5: Call API (Angular parity)
-      const response = await userDetailsService.addUpdateContractWireman(wiremanPayload);
+      const response = await applicationServices.addUpdateContractWireman(wiremanPayload);
       
       if (response.success) {
         console.log('✅ [WIREMAN] Successfully added wireman');
         
         // Step 6: Refresh data (Angular calls getContractorWorkerDetails)
         try {
-          const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+          const refreshResponse = await applicationServices.getContractorWorkerDetails(currentApprefId);
           if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
             const data = refreshResponse.data.formModel[0];
             const existingSupervisors = data.supervisorLicence_Backlog || [];
@@ -595,7 +498,7 @@ const ContractorSupervisor: React.FC = () => {
         try {
           console.log('🗑️ [SUPERVISOR] Deleting supervisor with id:', id);
           
-          const response = await userDetailsService.deleteContractSupervisor(id);
+          const response = await applicationServices.deleteContractSupervisor(id);
           
           if (response.success) {
             console.log('✅ [SUPERVISOR] Successfully deleted supervisor');
@@ -604,7 +507,7 @@ const ContractorSupervisor: React.FC = () => {
             const currentApprefId = applicationContext?.appRefId || apprefId;
             if (currentApprefId) {
               try {
-                const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+                const refreshResponse = await applicationServices.getContractorWorkerDetails(currentApprefId);
                 if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
                   const data = refreshResponse.data.formModel[0];
                   const existingSupervisors = data.supervisorLicence_Backlog || [];
@@ -646,7 +549,7 @@ const ContractorSupervisor: React.FC = () => {
         try {
           console.log('🗑️ [WIREMAN] Deleting wireman with id:', id);
           
-          const response = await userDetailsService.deleteContractWireman(id);
+          const response = await applicationServices.deleteContractWireman(id);
           
           if (response.success) {
             console.log('✅ [WIREMAN] Successfully deleted wireman');
@@ -655,7 +558,7 @@ const ContractorSupervisor: React.FC = () => {
             const currentApprefId = applicationContext?.appRefId || apprefId;
             if (currentApprefId) {
               try {
-                const refreshResponse = await userDetailsService.getContractorWorkerDetails(currentApprefId);
+                const refreshResponse = await applicationServices.getContractorWorkerDetails(currentApprefId);
                 if (refreshResponse.success && refreshResponse.data?.formModel?.[0]) {
                   const data = refreshResponse.data.formModel[0];
                   const existingSupervisors = data.supervisorLicence_Backlog || [];

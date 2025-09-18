@@ -1,4 +1,4 @@
-import { userDetailsService } from '../services/api/userDetailsService';
+import { applicationServices } from '../services/api/applicationServices';
 import type { SupervisorData, WiremanData } from '../types/supervisor.types';
 
 export interface ExpiryCheckResult {
@@ -137,7 +137,7 @@ export class CertificateExpiryService {
       console.log('🔍 [EXPIRY-SERVICE] Validating supervisor with expiry:', licenceNo);
       
       // Call API to validate licence
-      const response = await userDetailsService.getSupervisorDetails_ByLicenceNo(licenceNo);
+      const response = await applicationServices.getSupervisorDetails_ByLicenceNo(licenceNo);
       
       if (!response?.data || !response.success) {
         return {
@@ -209,7 +209,7 @@ export class CertificateExpiryService {
       console.log('🔍 [EXPIRY-SERVICE] Validating wireman with expiry:', licenceNo);
       
       // Call API to validate licence
-      const response = await userDetailsService.getWiremanDetails_ByLicenceNo(licenceNo);
+      const response = await applicationServices.getWiremanDetails_ByLicenceNo(licenceNo);
       
       if (!response?.data || !response.success) {
         return {

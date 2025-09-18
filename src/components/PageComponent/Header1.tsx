@@ -5,7 +5,6 @@ import Sidebar from './Sidebar';
 import { useAuth } from '../../hooks/useAuth';
 import { ToastService } from '../../utils';
 import Logo from '../Logo/Logo';
-import { axiosInterceptor } from '../../lib/interceptor';
 import encryptionService from '../../lib/encryptionService';
 
 interface UserData {

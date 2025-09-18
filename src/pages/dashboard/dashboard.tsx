@@ -144,7 +144,8 @@ const getTableData = () => {
 
   return (
     <div className="min-vh-100 bg-light" style={{ paddingTop: '80px' }}>
-      <Container fluid className="px-0" style={{ maxWidth: '1500px' }}>
+      <Container fluid className="px-0" style={{ maxWidth: '1500px' }}>  
+        
         <div className="bg-white rounded shadow-sm mx-auto" style={{ width: '90%', maxWidth: '1500px', padding: '32px' }}>
           
           <div className="p-1 mb-1">

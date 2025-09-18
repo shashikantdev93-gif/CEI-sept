@@ -8,12 +8,12 @@ import Dashboard from "../pages/dashboard/dashboard";
 import ProjectDetails from "../pages/project-details/project-details";
 import ApplicationForm from "../pages/ApplicationForm/ApplicationForm";
 import CommonApplicationFormEstablished from "../pages/common-application-form-established/common-application-form-established";
-import ContractorApplicantDetails from "../pages/Contractor - Applicant Details/ContractorApplicantDetails";
+import ContractorApplicantDetails from "../pages/contractor-applicant-details/ContractorApplicantDetails";
 import ContractorSupervisor from "../pages/contractor-supervisor/contractor-supervisor";
 import ContractorDocuments from "../pages/contractor-documents/contractor-documents";
-import SupervisorRegistration from "../pages/Supervisor Registration/supervisor-registration"; 
+import SupervisorRegistration from "../pages/supervisor-registration/supervisor-registration"; 
 import UploadSupervisorDocument from "../pages/upload-supervisor-document/upload-supervisor-document"; 
-import WiremanInformationNew from "../pages/Wireman Information-New/wireman-information";
+import WiremanInformationNew from "../pages/wireman-information/wireman-information";
 import UploadWiremanDocument from "../pages/upload-wireman-document/upload-wireman-document"; 
 
 

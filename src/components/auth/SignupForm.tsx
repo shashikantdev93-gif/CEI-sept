@@ -5,7 +5,7 @@ import type { SignupFormErrors } from '../../types/auth';
 import { FormField, PasswordField, CaptchaField, LoadingButton } from '../shared-component';
 import { useCaptcha } from '../../hooks/useCaptcha';
 import useSignupValidation from '../../hooks/useSignupValidation';
-import authService from '../../utils/authService';
+import authService from '../../services/api/authService';
 
 
 const SignupForm: React.FC = () => {

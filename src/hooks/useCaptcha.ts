@@ -1,5 +1,5 @@
 ﻿import { useState, useCallback } from 'react';
-import authService from '../utils/authService';
+import authService from '../services/api/authService';
 import { ToastService } from '../utils/navigation';
 import type { CaptchaData } from '../types/auth';
 
