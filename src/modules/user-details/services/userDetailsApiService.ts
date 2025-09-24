@@ -3,9 +3,11 @@
  * Phase 2.3 - Modular Architecture
  * 
  * Handles all API interactions for user details form
+ * SECURITY UPGRADE: Now uses axiosInterceptor for all API calls
  */
 
 import CryptoJS from 'crypto-js';
+import { axiosInterceptor } from '../../../lib/interceptor';
 import type { UserDetailsPayload, UserDetailsApiResponse, OTPGenerationPayload, OTPResponse, UserToken } from '../types/UserDetailsTypes';
 
 export class UserDetailsApiService {
@@ -73,20 +75,11 @@ export class UserDetailsApiService {
       
       const encryptedData = this.encryptData(payload);
       
-      const response = await fetch('/api/UserProfileDetail/Save_PreUserApplication', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: encryptedData })
+      const response = await axiosInterceptor.post('/UserProfileDetail/Save_PreUserApplication', {
+        data: encryptedData
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
+      return response.data as UserDetailsApiResponse;
       
     } catch (error) {
       console.error('Error submitting user details:', error);
@@ -101,20 +94,11 @@ export class UserDetailsApiService {
     try {
       const encryptedData = this.encryptData(payload);
       
-      const response = await fetch('/api/UserProfileDetail/Generate_OTP_For_MobileNumber', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: encryptedData })
+      const response = await axiosInterceptor.post('/UserProfileDetail/Generate_OTP_For_MobileNumber', {
+        data: encryptedData
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
+      return response.data as OTPResponse;
       
     } catch (error) {
       console.error('Error generating OTP:', error);
@@ -140,20 +124,11 @@ export class UserDetailsApiService {
       
       const encryptedData = this.encryptData(payload);
       
-      const response = await fetch('/api/UserProfileDetail/Verify_OTP_For_MobileNumber', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: encryptedData })
+      const response = await axiosInterceptor.post('/UserProfileDetail/Verify_OTP_For_MobileNumber', {
+        data: encryptedData
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
+      return response.data as OTPResponse;
       
     } catch (error) {
       console.error('Error verifying OTP:', error);
@@ -180,20 +155,11 @@ export class UserDetailsApiService {
       
       const encryptedData = this.encryptData(payload);
       
-      const response = await fetch('/api/UserProfileDetail/Save_PreUserApplication', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: encryptedData })
+      const response = await axiosInterceptor.post('/UserProfileDetail/Save_PreUserApplication', {
+        data: encryptedData
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
+      return response.data as UserDetailsApiResponse;
       
     } catch (error) {
       console.error('Error saving draft:', error);

@@ -181,27 +181,13 @@ export const useUserDetailsBusinessLogic = (): UseUserDetailsBusinessLogicReturn
     console.log('🔍 [USER-DETAILS-HOOK] Getting client ID...');
     
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5143/api';
-      const url = `${baseUrl}/CommonApis/getClientId`;
+      console.log('🌐 [GET-CLIENT-ID] Making request to: /CommonApis/getClientId');
       
-      console.log('🌐 [GET-CLIENT-ID] Making request to:', url);
+      const response = await axiosInterceptor.get('/CommonApis/getClientId');
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      console.log('🌐 [GET-CLIENT-ID] Response status: success');
 
-      console.log('🌐 [GET-CLIENT-ID] Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [GET-CLIENT-ID] Error response:', errorText);
-        throw new Error(`Failed to get client ID: ${response.status} - ${errorText}`);
-      }
-
-      const clientId = await response.text();
+      const clientId = response.data as string;
       console.log('✅ [USER-DETAILS-HOOK] Client ID received:', clientId);
       
       localStorage.setItem('clientId', clientId);

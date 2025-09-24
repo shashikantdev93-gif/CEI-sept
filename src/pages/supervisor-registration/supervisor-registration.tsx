@@ -2,17 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useProjectSiteAPI } from '../../hooks/useProjectSiteAPI';
+import { AppStorageService } from '../../lib/storage';
 
 const SupervisorRegistration: React.FC = () => {
   const navigate = useNavigate();
+  const storageService = new AppStorageService();
 
   // ✅ ADD: Draft mode detection logic (Angular parity)
   const getDraftApplicationId = (): number | null => {
     console.log('� [SUPERVISOR-REGISTRATION] ===== IMMEDIATE DRAFT ID DETECTION =====');
     
     // Step 1: Check localStorage first (primary method - Angular parity)
-    const applicationIdFromStorage = localStorage.getItem('ApplicationId');
-    const inspectionTypeFromStorage = localStorage.getItem('InspectionType');
+    const applicationIdFromStorage = storageService.getApplicationId();
+    const inspectionTypeFromStorage = storageService.getInspectionType();
     
     console.log('� [SUPERVISOR-REGISTRATION] localStorage check:', {
       ApplicationId: applicationIdFromStorage,

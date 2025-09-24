@@ -40,21 +40,22 @@ static checkUserProfileStatus(userProfileId: string, projectSiteId: string, role
     console.log('  - projectSiteId:', projectSiteId, 'type:', typeof projectSiteId);
     console.log('  - roleName:', roleName);
     
-    // Only redirect to registration form if userProfileId is "0"
+    // Step 1: User Profile Validation (Angular parity - exact route match)
     if (userProfileId === "0") {
-      const route = '/CommonApplicationFormUserDetails';
-      console.log('NavigationService - userProfileId is "0", returning registration route:', route);
+      const route = '/dashboard/caf/userDetails';
+      console.log('NavigationService - Step 1: userProfileId is "0", returning user registration route:', route);
       return route;
     }
 
-    if (userProfileId !== "0" && projectSiteId === "0") {
-      const route = '/CommonApplicationFormEstablished';
-      console.log('NavigationService - userProfileId filled but projectSiteId is "0", returning established form route:', route);
+    // Step 2: Project Site Validation - CONTRACTORS ONLY (Angular parity - exact route match)
+    if (userProfileId !== "0" && projectSiteId === "0" && roleName === 'CONS') {
+      const route = '/dashboard/caf/projectSite';
+      console.log('NavigationService - Step 2: Contractor with projectSiteId "0", returning established form route:', route);
       return route;
     }
     
-    // For all other cases, return null to allow normal navigation
-    console.log('NavigationService - userProfileId is not "0", allowing normal navigation');
+    // Step 3: All validation passed, proceed to role-based navigation
+    console.log('NavigationService - Steps 1&2 passed, proceeding to role-based navigation for role:', roleName);
     return null;
   }
 }

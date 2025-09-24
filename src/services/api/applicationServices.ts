@@ -654,7 +654,7 @@ export const applicationServices = {
   async getWiremanDetails_ByLicenceNo(licenceNo: string): Promise<ApiResponse<any>> {
     try {
       console.log('👷‍♂️ [APPLICATION-SERVICE] Getting wireman details by licence:', licenceNo);
-      const response = await axiosInterceptor.get(`/ContractorLicence/getWiremanDetails_ByLicenceNo?licenceNo=${licenceNo}`);
+      const response = await axiosInterceptor.get(`/WiremanLicence/getWiremanDetails_ByLicenceNo?licenceNo=${licenceNo}`);
       console.log('✅ [APPLICATION-SERVICE] Wireman details response:', response);
       return response;
     } catch (error) {
@@ -690,7 +690,7 @@ export const applicationServices = {
   async addUpdateContractSupervisor(payload: any): Promise<ApiResponse<any>> {
     try {
       console.log('👨‍💼 [APPLICATION-SERVICE] Adding/updating contract supervisor:', payload);
-      const response = await axiosInterceptor.post('/ContractorLicence/addUpdate_ContractSupervisor', payload);
+      const response = await axiosInterceptor.post('/ContractorLicence/addUpdateContractSupervisor_BacklogDetails', payload);
       console.log('✅ [APPLICATION-SERVICE] Contract supervisor response:', response);
       return response;
     } catch (error) {
@@ -702,7 +702,7 @@ export const applicationServices = {
   async addUpdateContractWireman(payload: any): Promise<ApiResponse<any>> {
     try {
       console.log('👷‍♂️ [APPLICATION-SERVICE] Adding/updating contract wireman:', payload);
-      const response = await axiosInterceptor.post('/ContractorLicence/addUpdate_ContractWireman', payload);
+      const response = await axiosInterceptor.post('/ContractorLicence/addUpdateContractWireman_BacklogDetails', payload);
       console.log('✅ [APPLICATION-SERVICE] Contract wireman response:', response);
       return response;
     } catch (error) {
@@ -816,7 +816,7 @@ export const applicationServices = {
   async getWireBacklogDetailsByLicenceNo(licenceNo: string): Promise<ApiResponse<any>> {
     try {
       console.log('📋 [APPLICATION-SERVICE] Getting wire backlog details:', licenceNo);
-      const response = await axiosInterceptor.get(`/ContractorLicence/getWireBacklogDetailsByLicenceNo?licenceNo=${licenceNo}`);
+      const response = await axiosInterceptor.get(`/WiremanLicence/getWireBacklogDetailsByLicenceNo?licenceNo=${licenceNo}`);
       console.log('✅ [APPLICATION-SERVICE] Wire backlog response:', response);
       return response;
     } catch (error) {

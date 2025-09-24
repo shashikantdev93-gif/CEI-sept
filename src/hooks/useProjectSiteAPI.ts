@@ -77,6 +77,9 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Add request cache to prevent duplicate calls
+  const requestCacheRef = useRef(new Map<string, number>());
 
   const [contractorData, setContractorData] = useState<SavedContractorData | null>(null);
   const [contractorSaving, setContractorSaving] = useState(false);
@@ -135,6 +138,18 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
       console.log(`⚠️ [${pageType.toUpperCase()} API]: Already loading, skipping duplicate call`);
       return;
     }
+
+    // Add request deduplication based on category and page type
+    const requestKey = `${pageType}_${category || 'default'}`;
+    const now = Date.now();
+    const lastRequest = requestCacheRef.current.get(requestKey);
+    
+    if (lastRequest && (now - lastRequest) < 1000) { // 1 second cooldown
+      console.log(`⏸️ [${pageType.toUpperCase()} API]: Request too recent for ${requestKey}, skipping`);
+      return;
+    }
+    
+    requestCacheRef.current.set(requestKey, now);
 
     try {
       setLoading(true);
@@ -306,6 +321,8 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
 
   // Auto-load data on component mount ONLY
   useEffect(() => {
+    console.log(`🔍 [${pageType.toUpperCase()} API]: useEffect triggered, autoLoad:`, autoLoad, 'hasLoaded:', hasLoadedRef.current);
+    
     if (autoLoad && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
       
@@ -325,6 +342,8 @@ export const useProjectSiteAPI = (options: UseProjectSiteAPIOptions) => {
       };
       
       loadData();
+    } else if (hasLoadedRef.current) {
+      console.log(`⏭️ [${pageType.toUpperCase()} API]: Data already loaded, skipping auto-load`);
     }
   }, []); 
 

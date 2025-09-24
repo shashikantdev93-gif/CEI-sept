@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Container, Row, Col } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useAppNavigation } from '../../hooks/useAppNavigation';
 import DataTable from '../../components/shared-component/DataTable';
 import CardDisplay from '../../components/shared-component/cardDisplay';
 import { useProjectSiteAPI } from '../../hooks/useProjectSiteAPI';
 import { ProjectSiteDataMapper } from '../../utils/projectSiteDataMapper';
 
 const DashboardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { navigateTo, routes } = useAppNavigation();
   type Category = 'Project Site Applied' | 'Rejected' | 'Inbox' | 'Closed';
   const [selectedDropdownValue, setSelectedDropdownValue] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<Category>('Project Site Applied');
@@ -110,7 +110,7 @@ const getTableData = () => {
     console.log('Details button clicked, navigating to /ProjectDetails');
     sessionStorage.setItem('allowProjectDetailsNavigation', 'true');
     console.log('Dashboard - Set allowProjectDetailsNavigation flag');
-    navigate('/dashboard/ProjectDetails');
+    navigateTo(routes.PROJECT_DETAILS);
   };
 
   // Handle category change - manually load data for different categories

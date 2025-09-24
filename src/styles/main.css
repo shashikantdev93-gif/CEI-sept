@@ -684,3 +684,98 @@ html, body {
   }
 }
 
+/* ======================================= */
+/* Admin Dashboard Cards - Angular Parity */
+/* ======================================= */
+
+.order-card {
+  color: #fff;
+}
+
+.bg-c-blue {
+  background: linear-gradient(45deg, #4099ff, #73b4ff);
+}
+
+.bg-c-green {
+  background: linear-gradient(45deg, #2ed8b6, #59e0c5);
+}
+
+.bg-c-yellow {
+  background: rgb(249, 249, 237);
+}
+
+.bg-c-submitted {
+  background: rgb(237, 249, 240);
+}
+
+.bg-c-pink {
+  background: rgb(255, 240, 242);
+}
+
+/* ✅ REMOVED - Generic card hover effects that affected ALL cards 
+.card:hover {
+  border: 1px solid lightgray;
+  transform: scale(1.05);
+}
+
+.card:active {
+  transform: scale(0.95);
+}
+*/
+
+.card {
+  border-radius: 5px;
+  -webkit-box-shadow: 0 1px 2.94px 0.06px rgba(4, 26, 55, 0.16);
+  box-shadow: 0 1px 2.94px 0.06px rgba(4, 26, 55, 0.16);
+  border: none;
+  margin-bottom: 30px;
+  -webkit-transition: all 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out;
+  cursor: pointer;
+  transition: all 0.5s;
+}
+
+.card .card-block {
+  padding: 25px;
+}
+
+.order-card i {
+  font-size: 26px;
+}
+
+/* Dashboard Card Bottom Borders - Angular Parity */
+.cardBottomBorderPending {
+  border-bottom: 4px solid rgb(219, 135, 0) !important;
+  transform: scale(1.02) !important;
+}
+
+.cardBottomBorderProcessed {
+  border-bottom: 4px solid #198754 !important;
+  transform: scale(1.02) !important;
+}
+
+.cardBottomBorderRejected {
+  border-bottom: 4px solid #dc3545 !important;
+  transform: scale(1.02) !important;
+}
+
+.cardBottomBorderApplicant {
+  border-bottom: 4px solid #5e3d8b !important;
+  transform: scale(1.02) !important;
+}
+
+.cardBottomBorderAgenda {
+  border-bottom: 4px solid #f46d43 !important;
+  transform: scale(1.02) !important;
+}
+
+.cardBottomBorderProjectSiteApplied {
+  border-bottom: 4px solid #0d6efd !important;
+  transform: scale(1.02) !important;
+}
+
+.cardBottomBorderDepartment {
+  border-bottom: 4px solid #2176c7 !important;
+  transform: scale(1.02) !important;
+}
+

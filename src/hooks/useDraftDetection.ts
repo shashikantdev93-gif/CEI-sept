@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
+import { AppStorageService } from '../lib/storage';
 
 // Draft detection configuration for different application types
 export interface DraftDetectionConfig {
@@ -25,6 +26,7 @@ export interface DraftDetectionResult {
 export const useDraftDetection = (config: DraftDetectionConfig): DraftDetectionResult => {
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const storageService = new AppStorageService();
   const [draftResult, setDraftResult] = useState<DraftDetectionResult>({
     hasDraft: false,
     draftId: null,
@@ -41,8 +43,8 @@ export const useDraftDetection = (config: DraftDetectionConfig): DraftDetectionR
 
     // Step 1: Check localStorage first (primary Angular method)
     if (config.enableLocalStorage !== false) {
-      const applicationIdFromStorage = localStorage.getItem('ApplicationId');
-      const inspectionTypeFromStorage = localStorage.getItem('InspectionType');
+      const applicationIdFromStorage = storageService.getApplicationId();
+      const inspectionTypeFromStorage = storageService.getInspectionType();
 
       console.log(`📱 ${debugPrefix} localStorage check:`, {
         ApplicationId: applicationIdFromStorage,

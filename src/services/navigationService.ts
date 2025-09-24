@@ -72,8 +72,8 @@ export interface DraftNavigationData {
   is30DaysCrossed?: boolean;
 }
 
-// Enhanced Navigation Service
-export class EnhancedNavigationService {
+// Navigation Service
+export class NavigationService {
   private config: NavigationConfig;
   private navigate: NavigateFunction | null = null;
   private currentLocation: Location | null = null;
@@ -337,6 +337,27 @@ export class EnhancedNavigationService {
     });
   }
 
+  // Build encrypted URL for external use (emails, etc.)
+  buildEncryptedUrl(baseUrl: string, route: string, params: Record<string, any>): string {
+    try {
+      const encryptedData = this.encryptParams(params);
+      if (!encryptedData) {
+        this.log('warn', 'Failed to encrypt parameters for URL building');
+        return `${baseUrl}${route}`;
+      }
+      
+      const searchParams = new URLSearchParams();
+      searchParams.set('data', encryptedData);
+      
+      const finalUrl = `${baseUrl}${route}?${searchParams.toString()}`;
+      this.log('info', 'Built encrypted URL', { baseUrl, route, finalUrl });
+      return finalUrl;
+    } catch (error: any) {
+      this.log('error', 'Error building encrypted URL', error);
+      return `${baseUrl}${route}`;
+    }
+  }
+
   // Clear navigation-related session data
   clearNavigationSessionData(): void {
     const keysToRemove = [
@@ -400,7 +421,7 @@ export class EnhancedNavigationService {
 }
 
 // Create and export singleton instance
-export const navigationService = new EnhancedNavigationService();
+export const navigationService = new NavigationService();
 
 // React hook for easy navigation service usage
 export const useNavigationService = () => {
@@ -415,13 +436,13 @@ export const NavigationUtils = {
     params: RouteParams,
     options?: { replace?: boolean }
   ) => {
-    const service = new EnhancedNavigationService();
+    const service = new NavigationService();
     service.initialize(navigate, window.location as any);
     return service.navigateTo(route, params, { ...options, encrypted: true });
   },
 
   getDecryptedParams: (searchParams: URLSearchParams): RouteParams | null => {
-    const service = new EnhancedNavigationService();
+    const service = new NavigationService();
     const encryptedData = searchParams.get('data');
     if (!encryptedData) return null;
     
@@ -429,7 +450,7 @@ export const NavigationUtils = {
   },
 
   navigateToContractorForm: (navigate: NavigateFunction, appRefId: number) => {
-    const service = new EnhancedNavigationService();
+    const service = new NavigationService();
     service.initialize(navigate, window.location as any);
     return service.navigateToContractorDetails(appRefId);
   },

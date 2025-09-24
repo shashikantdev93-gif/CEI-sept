@@ -1,6 +1,7 @@
-// Create this file exactly as your import expects it
+// SECURITY UPGRADE: Now uses axiosInterceptor for all registration operations
 // This implements the exact Angular flow from verifyMobileNumber()
 
+import { axiosInterceptor } from '../../lib/interceptor';
 import encryptionService from '../../lib/encryptionService';
 
 export interface UserDetailsData {
@@ -56,50 +57,34 @@ export interface UserDetailsResponse {
 
 // Step 2: Submit user details (same endpoint as Angular save() method)
 export const saveUserDetails = async (userData: any) => {
-  const token = JSON.parse(localStorage.getItem('token') || '{}');
-  
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/UserDetails/addUpdate_UserDetails`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token.accessToken}`
-    },
-    body: JSON.stringify(userData)
-  });
-
-  if (!response.ok) {
+  try {
+    const response = await axiosInterceptor.post('/UserDetails/addUpdate_UserDetails', userData);
+    return response.data;
+  } catch (error) {
+    console.error('🔐 [Registration] Save user details error:', error);
     throw new Error('Failed to save user details');
   }
-
-  return response.json();
 };
 
 
 
 export const generateOTP = async (mobileNumber: string) => {
-  const token = JSON.parse(localStorage.getItem('token') || '{}');
-  const userId = encryptionService.decrypt(token.userId);
-  
-  const payload = {
-    mobileNumber,
-    userId: parseInt(userId)
-  };
+  try {
+    const token = JSON.parse(localStorage.getItem('token') || '{}');
+    const userId = encryptionService.decrypt(token.userId);
+    
+    const payload = {
+      mobileNumber,
+      userId: parseInt(userId)
+    };
 
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ProjectSites/generateOtp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token.accessToken}`
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
+    const response = await axiosInterceptor.post('/ProjectSites/generateOtp', payload);
+    const data = response.data as any;
+    return JSON.parse(encryptionService.decrypt(data.data));
+  } catch (error) {
+    console.error('🔐 [Registration] Generate OTP error:', error);
     throw new Error('Failed to generate OTP');
   }
-
-  const data = await response.json();
-  return JSON.parse(encryptionService.decrypt(data.data));
 };
 
 

@@ -6,6 +6,7 @@ import FileUpload from '../../components/FileUpload';
 import { useContractorBusinessLogic } from '../../modules/contractor/hooks/useContractorBusinessLogic';
 import { applicationServices } from '../../services/api/applicationServices';
 import { ContractorPayloadBuilder } from '../../services/contractorPayloadBuilder';
+import { useContractorDraftDetection } from '../../hooks/useDraftDetection';
 import encryptionService from '../../lib/encryptionService';
 import { 
   CONTRACTOR_TYPES, 
@@ -16,72 +17,16 @@ import {
 const ContractorApplicantDetails: React.FC = () => {
   const navigate = useNavigate();
   
-  // ✅ CRITICAL: Determine draftApplicationId IMMEDIATELY before hook call (Angular parity)
-  const getDraftApplicationId = (): number | null => {
-    console.log('🔗 [CONTRACTOR-DETAILS] ===== IMMEDIATE DRAFT ID DETECTION =====');
-    
-    // Step 1: Check localStorage first (primary Angular method)
-    const applicationIdFromStorage = localStorage.getItem('ApplicationId');
-    const inspectionTypeFromStorage = localStorage.getItem('InspectionType');
-    
-    console.log('📱 [CONTRACTOR-DETAILS] localStorage check:', {
-      ApplicationId: applicationIdFromStorage,
-      InspectionType: inspectionTypeFromStorage
-    });
-    
-    if (applicationIdFromStorage && inspectionTypeFromStorage === 'Contractor') {
-      const numericAppId = parseInt(applicationIdFromStorage);
-      if (!isNaN(numericAppId) && numericAppId > 0) {
-        console.log('✅ [CONTRACTOR-DETAILS] Draft navigation detected via localStorage:', numericAppId);
-        return numericAppId;
-      }
-    }
-    
-    // Step 2: Check URL parameters as fallback
-    const urlParams = new URLSearchParams(window.location.search);
-    const appRefIdFromUrl = urlParams.get('appRefId') || 
-                           urlParams.get('applicationId') || 
-                           urlParams.get('appId') ||
-                           urlParams.get('ApplicationId');
-    
-    console.log('🔗 [CONTRACTOR-DETAILS] URL parameter check:', {
-      appRefId: urlParams.get('appRefId'),
-      applicationId: urlParams.get('applicationId'),
-      appId: urlParams.get('appId'),
-      ApplicationId: urlParams.get('ApplicationId'),
-      finalValue: appRefIdFromUrl
-    });
-    
-    if (appRefIdFromUrl) {
-      const numericAppRefId = parseInt(appRefIdFromUrl);
-      if (!isNaN(numericAppRefId) && numericAppRefId > 0) {
-        console.log('✅ [CONTRACTOR-DETAILS] AppRefId found in URL parameters:', numericAppRefId);
-        return numericAppRefId;
-      }
-    }
-    
-    // Step 3: Check sessionStorage as final fallback
-    const draftData = sessionStorage.getItem('draftApplicationData');
-    if (draftData) {
-      try {
-        const parsedData = JSON.parse(draftData);
-        if (parsedData.appId || parsedData.ApplicationId) {
-          const appId = parsedData.appId || parsedData.ApplicationId;
-          console.log('🔄 [CONTRACTOR-DETAILS] Draft mode detected from sessionStorage, appId:', appId);
-          return appId;
-        }
-      } catch (error) {
-        console.error('❌ [CONTRACTOR-DETAILS] Error parsing draft data:', error);
-      }
-    }
-    
-    console.log('ℹ️ [CONTRACTOR-DETAILS] No draft navigation detected - user may be creating new application');
-    return null;
-  };
-
-  // ✅ Get draft ID IMMEDIATELY and synchronously before hook call
-  const draftApplicationId = getDraftApplicationId();
-  console.log('🎯 [CONTRACTOR-DETAILS] Final draftApplicationId for hook:', draftApplicationId);
+  // ✅ CENTRALIZED DRAFT DETECTION: Replace inline logic with reusable hook
+  const draftResult = useContractorDraftDetection();
+  const draftApplicationId = draftResult.draftId;
+  
+  console.log('🎯 [CONTRACTOR-DETAILS] Centralized draft detection result:', {
+    hasDraft: draftResult.hasDraft,
+    draftId: draftResult.draftId,
+    source: draftResult.source,
+    isNewApplication: draftResult.isNewApplication
+  });
 
   const {
   // Form States

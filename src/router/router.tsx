@@ -14,7 +14,13 @@ import ContractorDocuments from "../pages/contractor-documents/contractor-docume
 import SupervisorRegistration from "../pages/supervisor-registration/supervisor-registration"; 
 import UploadSupervisorDocument from "../pages/upload-supervisor-document/upload-supervisor-document"; 
 import WiremanInformationNew from "../pages/wireman-information/wireman-information";
-import UploadWiremanDocument from "../pages/upload-wireman-document/upload-wireman-document"; 
+import UploadWiremanDocument from "../pages/upload-wireman-document/upload-wireman-document";
+import UserDetails from "../pages/user-details/UserDetails";
+import ProcessApplication from "../pages/process-application/ProcessApplication";
+import ViewApplication from "../pages/view-application/ViewApplication";
+import AdminDashboard from "../pages/admin-dashboard/AdminDashboard";
+import OfficerDashboard from "../pages/officer-dashboard/OfficerDashboard";
+import LicenseDashboard from "../pages/license-dashboard/LicenseDashboard"; 
 
 
 
@@ -48,7 +54,40 @@ const RouterPage = () => (
           </BaseLayout>
         }
       />
+      {/* Role-based Dashboard routes - Angular parity */}
+      <Route
+        path="/dashboard/admin-dashboard"
+        element={
+          <BaseLayout headerType="Header1">
+            <AdminDashboard />
+          </BaseLayout>
+        }
+      />
+      <Route
+        path="/dashboard/officer-dashboard"
+        element={
+          <BaseLayout headerType="Header1">
+            <OfficerDashboard />
+          </BaseLayout>
+        }
+      />
+      <Route
+        path="/dashboard/license-dashboard"
+        element={
+          <BaseLayout headerType="Header1">
+            <LicenseDashboard />
+          </BaseLayout>
+        }
+      />
       {/* Common Application Form routes - matching Angular structure */}
+      <Route
+        path="/dashboard/caf/userDetails"
+        element={
+          <BaseLayout headerType="Header1">
+            <CommonApplicationFormUserDetails />
+          </BaseLayout>
+        }
+      />
       <Route
         path="/dashboard/caf/projectSite"
         element={
@@ -139,6 +178,30 @@ const RouterPage = () => (
           </BaseLayout>
         }
        
+      />
+      <Route
+        path="/admin/user-details"
+        element={
+          <BaseLayout headerType="Header1">
+            <UserDetails />
+          </BaseLayout>
+        }
+      />
+      <Route
+        path="/admin/process-application"
+        element={
+          <BaseLayout headerType="Header1">
+            <ProcessApplication />
+          </BaseLayout>
+        }
+      />
+      <Route
+        path="/admin/view-application"
+        element={
+          <BaseLayout headerType="Header1">
+            <ViewApplication />
+          </BaseLayout>
+        }
       />
        
     </Routes>
